@@ -1,0 +1,19 @@
+services:
+  telegram_user_bridge:
+    build:
+      context: ../..
+      dockerfile: images/telegram-TDLib/Dockerfile
+    environment:
+      TELEGRAM_API_ID: ${TELEGRAM_API_ID}
+      TELEGRAM_API_HASH: ${TELEGRAM_API_HASH}
+      TELEGRAM_PHONE: ${TELEGRAM_PHONE}
+      TELEGRAM_PASSWORD: ${TELEGRAM_PASSWORD}
+      TELEGRAM_BRIDGE_HOST: 0.0.0.0
+      TELEGRAM_BRIDGE_PORT: 8081
+      TELEGRAM_SESSION_DIR: /data
+    volumes:
+      - ./session:/data
+    ports:
+      - "127.0.0.1:8081:8081"
+    stdin_open: true
+    tty: true

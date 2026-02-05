@@ -1,0 +1,12 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "dev_env": {
+      "type": "local",
+      "command": [
+        "dev-env-mcp"
+      ],
+      "enabled": true
+    }
+  }
+}
