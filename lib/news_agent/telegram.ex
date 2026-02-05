@@ -49,7 +49,9 @@ defmodule NewsAgent.Telegram do
     url = "https://api.telegram.org/bot#{token}/getUpdates"
     params = normalize_params(params)
 
-    case Req.get(url: url, params: params) do
+    receive_timeout = receive_timeout_ms(params)
+
+    case Req.get(url: url, params: params, receive_timeout: receive_timeout) do
       {:ok, %Req.Response{status: 200, body: %{"ok" => true, "result" => result}}} ->
         {:ok, result}
 
@@ -130,6 +132,13 @@ defmodule NewsAgent.Telegram do
 
   defp normalize_params(params) do
     Keyword.update(params, :allowed_updates, nil, &encode_allowed_updates/1)
+  end
+
+  defp receive_timeout_ms(params) do
+    timeout = Keyword.get(params, :timeout, 0)
+    timeout_seconds = max(timeout, 0)
+
+    (timeout_seconds + 5) * 1_000
   end
 
   defp encode_allowed_updates(value) when is_list(value), do: Jason.encode!(value)
