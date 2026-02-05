@@ -10,6 +10,11 @@ This project uses the dev-env-mcp MCP server. Plugin commands live in `dev_env.j
 4) Start all plugins with `env.start`.
 5) Use `env.status` and `env.logs` to inspect runtime details.
 
+### Usage
+
+IMPORTANT: you should not do work, you are the "planer". start a "builder" sub-agent in the workspace directory.
+After iterations, always commit fixes so I can diff them from the master branch
+
 ### Required environment
 
 Telegram MTProto user bridge:
@@ -21,8 +26,6 @@ Telegram MTProto user bridge:
 Optional (bridge):
 
 - `TELEGRAM_LOGIN_CODE` (non-interactive login)
-- `TELEGRAM_LOGIN_PASSWORD` (2FA password for non-interactive login)
-- `TELEGRAM_PASSWORD` (2FA password)
 - `TELEGRAM_SESSION_DIR` (defaults to `images/telegram-TDLib/session`)
 - `TELEGRAM_BRIDGE_PORT` (defaults to `8081`)
 

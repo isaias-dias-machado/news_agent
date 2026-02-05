@@ -1,9 +1,12 @@
 {
+  "workspace_copy": [
+    "deps"
+  ],
   "plugins": [
     {
       "name": "telegram_user_bridge",
       "type": "docker",
-      "socpe": "shared",
+      "scope": "shared",
       "image": "telegram_tdlib_bridge",
       "args": [
         "-e",
@@ -29,7 +32,7 @@
     {
       "name": "news_agent",
       "type": "process",
-      "cmd": "iex -S mix"
+      "cmd": "bash -lc 'export PATH=\"$HOME/.asdf/shims:$PATH\"; mix run --no-halt'"
     }
   ]
 }
