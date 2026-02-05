@@ -30,3 +30,5 @@ news_agent-*.tar
 workspaces/
 /workspaces/
 !/workspaces/.gitignore
+
+.commit-message-stash

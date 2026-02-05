@@ -70,9 +70,17 @@ The `telegram_user_bridge` plugin runs the container with port 8081 bound to loc
 - `POST http://127.0.0.1:8081/send` with JSON `{ "peer": "@bot", "text": "..." }`
 - `GET http://127.0.0.1:8081/updates?peer=@bot`
 
-## Merging into master branch
+## Committing and Merging into master branch
+
+IMPORTANT: the `.commit-message-stash` should be the basis for the body of the
+commit message
 
 Push feature branch → update main workspace → squash merge from remote branch into main.
+
+## Iteration and testing
+
+IMPORTANT: When implementing features you should try to test them using their top level public API, if the code is not behaving as expected you should try to fix it before stopping.
+IMPORTANT: I want you to maintain create a temporary document on the workspace under the `.commit-message-stash` directory that should include the steps that were taken to test the feature.
 
 ## Documentation & Boundary Contracts
 
