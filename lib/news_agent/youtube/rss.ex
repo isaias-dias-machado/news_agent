@@ -1,4 +1,4 @@
-defmodule NewsAgent.Plugins.YouTube.RSS do
+defmodule NewsAgent.YouTube.RSS do
   @moduledoc """
   Fetches and parses YouTube Atom feeds for channel entries.
 

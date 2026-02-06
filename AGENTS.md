@@ -93,7 +93,7 @@ ManualTesting transcript capture:
 ```
 source "$HOME/.env"
 export PATH="$HOME/.asdf/shims:$PATH"
-mix run -e 'IO.puts(NewsAgent.ManualTesting.run("https://youtu.be/VM5MjVALMGc?si=pkj1Yw52Ff4bKNEY"))'
+mix run -e 'IO.inspect(NewsAgent.ManualTesting.run("https://youtu.be/VM5MjVALMGc?si=pkj1Yw52Ff4bKNEY"))'
 ```
 
 ## Documentation & Boundary Contracts

@@ -1,4 +1,4 @@
-defmodule NewsAgent.Transcription.TranscriptAPI do
+defmodule NewsAgent.YouTube.Transcription.TranscriptAPI do
   @moduledoc """
   TranscriptAPI client boundary for fetching YouTube transcripts.
 

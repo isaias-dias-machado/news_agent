@@ -1,60 +1,19 @@
 defmodule NewsAgent.ManualTesting do
   @moduledoc """
-  Manual testing façade for transcript storage.
+  Manual testing façade for transcript retrieval.
 
   Contract: callers provide a YouTube URL or video id and receive a filesystem
-  path containing the stored transcript. This module performs external HTTP
-  requests and filesystem writes, and raises on any failure to surface issues
-  during manual testing.
+  result containing the transcript. This module performs external HTTP requests
+  and returns the same result as the function under test.
   """
 
-  import Bitwise
-
-  alias NewsAgent.Transcription.TranscriptAPI
+  alias NewsAgent.YouTube
 
   @doc """
-  Fetches a transcript and writes it to disk.
+  Fetches a transcript and returns the result tuple.
   """
-  @spec run(String.t(), Keyword.t()) :: String.t()
+  @spec run(String.t(), Keyword.t()) :: {:ok, String.t()} | {:error, term()}
   def run(video_url, opts \\ []) when is_binary(video_url) and is_list(opts) do
-    transcript = fetch_transcript!(video_url, opts)
-    write_transcript!(transcript)
-  end
-
-  defp fetch_transcript!(video_url, opts) do
-    case TranscriptAPI.fetch_transcript(video_url, opts) do
-      {:ok, transcript} when byte_size(transcript) > 0 -> transcript
-      {:ok, _} -> raise "TranscriptAPI returned empty transcript"
-      {:error, reason} -> raise "TranscriptAPI failed: #{inspect(reason)}"
-    end
-  end
-
-  defp write_transcript!(transcript) do
-    date = Date.utc_today() |> Date.to_iso8601()
-    uuid = uuid4()
-    dir = Path.join(["data", "users", "isaias", date])
-    path = Path.join(dir, "#{uuid}.txt")
-
-    File.mkdir_p!(dir)
-    File.write!(path, transcript)
-
-    path
-  end
-
-  defp uuid4 do
-    bytes = :crypto.strong_rand_bytes(16)
-    list = :binary.bin_to_list(bytes)
-
-    list =
-      list
-      |> List.update_at(6, fn byte -> (byte &&& 0x0F) ||| 0x40 end)
-      |> List.update_at(8, fn byte -> (byte &&& 0x3F) ||| 0x80 end)
-
-    hex = Base.encode16(:binary.list_to_bin(list), case: :lower)
-
-    <<p1::binary-size(8), p2::binary-size(4), p3::binary-size(4), p4::binary-size(4),
-      p5::binary-size(12)>> = hex
-
-    "#{p1}-#{p2}-#{p3}-#{p4}-#{p5}"
+    YouTube.transcript_for_video(video_url, opts)
   end
 end
