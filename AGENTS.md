@@ -82,6 +82,18 @@ Push feature branch → update main workspace → squash merge from remote branc
 IMPORTANT: When implementing features you should try to test them using their top level public API, if the code is not behaving as expected you should try to fix it before stopping.
 IMPORTANT: I want you to maintain create a temporary document on the workspace under the `.commit-message-stash` directory that should include the steps that were taken to test the feature.
 
+### Manual testing workflow
+
+All manual testing workflows must be registered here.
+
+ManualTesting transcript capture:
+
+```
+source "$HOME/.env"
+export PATH="$HOME/.asdf/shims:$PATH"
+mix run -e 'IO.puts(NewsAgent.ManualTesting.run("https://youtu.be/VM5MjVALMGc?si=pkj1Yw52Ff4bKNEY"))'
+```
+
 ## Documentation & Boundary Contracts
 
 - **Internal Implementation:** No comments allowed in internal logic or private functions.

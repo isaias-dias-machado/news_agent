@@ -1,26 +1,24 @@
 defmodule NewsAgent.ManualTesting do
   @moduledoc """
-  Manual testing façade for transcript-based video summaries.
+  Manual testing façade for transcript storage.
 
   Contract: callers provide a YouTube URL or video id and receive a filesystem
-  path containing the generated summary. This module performs external HTTP
-  requests, LLM calls, and filesystem writes, and raises on any failure to
-  surface issues during manual testing.
+  path containing the stored transcript. This module performs external HTTP
+  requests and filesystem writes, and raises on any failure to surface issues
+  during manual testing.
   """
 
   import Bitwise
 
-  alias NewsAgent.Gemini
   alias NewsAgent.Transcription.TranscriptAPI
 
   @doc """
-  Fetches a transcript, summarizes it, and writes the summary to disk.
+  Fetches a transcript and writes it to disk.
   """
   @spec run(String.t(), Keyword.t()) :: String.t()
   def run(video_url, opts \\ []) when is_binary(video_url) and is_list(opts) do
     transcript = fetch_transcript!(video_url, opts)
-    summary = summarize!(transcript, opts)
-    write_summary!(summary)
+    write_transcript!(transcript)
   end
 
   defp fetch_transcript!(video_url, opts) do
@@ -31,22 +29,14 @@ defmodule NewsAgent.ManualTesting do
     end
   end
 
-  defp summarize!(transcript, opts) do
-    case Gemini.summarize_text(transcript, opts) do
-      {:ok, summary} when byte_size(summary) > 0 -> summary
-      {:ok, _} -> raise "Gemini returned empty summary"
-      {:error, reason} -> raise "Gemini summarization failed: #{inspect(reason)}"
-    end
-  end
-
-  defp write_summary!(summary) do
+  defp write_transcript!(transcript) do
     date = Date.utc_today() |> Date.to_iso8601()
     uuid = uuid4()
     dir = Path.join(["data", "users", "isaias", date])
     path = Path.join(dir, "#{uuid}.txt")
 
     File.mkdir_p!(dir)
-    File.write!(path, summary)
+    File.write!(path, transcript)
 
     path
   end
