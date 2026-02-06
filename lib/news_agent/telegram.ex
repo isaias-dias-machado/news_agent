@@ -18,12 +18,12 @@ defmodule NewsAgent.Telegram do
 
   @spec send_hello(chat_id()) :: :ok | {:error, term()}
   def send_hello(chat_id) when is_integer(chat_id) do
-    send_message(chat_id, "Hello world")
+    NewsAgent.Telegram.Api.send_message(chat_id, "Hello world")
   end
 
   @spec latest_chat_ids() :: [chat_id()]
   def latest_chat_ids do
-    case get_updates(timeout: 0, limit: 10) do
+    case NewsAgent.Telegram.Api.get_updates(timeout: 0, limit: 10) do
       {:ok, updates} ->
         updates
         |> Enum.map(&extract_chat_id/1)
@@ -43,54 +43,6 @@ defmodule NewsAgent.Telegram do
     poll_next(nil, handler, timeout, allowed_updates)
   end
 
-  @spec get_updates(keyword()) :: {:ok, [update()]} | {:error, term()}
-  def get_updates(params \\ []) do
-    token = bot_token!()
-    url = "https://api.telegram.org/bot#{token}/getUpdates"
-    params = normalize_params(params)
-
-    receive_timeout = receive_timeout_ms(params)
-
-    case Req.get(url: url, params: params, receive_timeout: receive_timeout) do
-      {:ok, %Req.Response{status: 200, body: %{"ok" => true, "result" => result}}} ->
-        {:ok, result}
-
-      {:ok, %Req.Response{body: %{"ok" => false} = body}} ->
-        {:error, {:telegram_error, body}}
-
-      {:ok, %Req.Response{} = response} ->
-        {:error, {:unexpected_response, response}}
-
-      {:error, error} ->
-        {:error, error}
-    end
-  end
-
-  @spec send_message(chat_id(), String.t()) :: :ok | {:error, term()}
-  def send_message(chat_id, text) do
-    token = bot_token!()
-    url = "https://api.telegram.org/bot#{token}/sendMessage"
-
-    case Req.post(url: url, json: %{chat_id: chat_id, text: text}) do
-      {:ok, %Req.Response{status: 200, body: %{"ok" => true}}} ->
-        :ok
-
-      {:ok, %Req.Response{body: %{"ok" => false} = body}} ->
-        {:error, {:telegram_error, body}}
-
-      {:ok, %Req.Response{} = response} ->
-        {:error, {:unexpected_response, response}}
-
-      {:error, error} ->
-        {:error, error}
-    end
-  end
-
-  @spec bot_token!() :: String.t()
-  def bot_token! do
-    System.fetch_env!("TELEGRAM_BOT_TOKEN")
-  end
-
   defp poll_next(offset, handler, timeout, allowed_updates) do
     params =
       []
@@ -98,7 +50,7 @@ defmodule NewsAgent.Telegram do
       |> Keyword.put(:timeout, timeout)
       |> Keyword.put(:allowed_updates, allowed_updates)
 
-    case get_updates(params) do
+    case NewsAgent.Telegram.Api.get_updates(params) do
       {:ok, updates} ->
         next_offset = handle_updates(updates, handler, offset)
         poll_next(next_offset, handler, timeout, allowed_updates)
@@ -121,7 +73,7 @@ defmodule NewsAgent.Telegram do
   end
 
   defp handle_hello(%{"message" => %{"chat" => %{"id" => chat_id}}}) do
-    _ = send_message(chat_id, "Hello world")
+    _ = NewsAgent.Telegram.Api.send_message(chat_id, "Hello world")
     :ok
   end
 
@@ -129,20 +81,6 @@ defmodule NewsAgent.Telegram do
 
   defp extract_chat_id(%{"message" => %{"chat" => %{"id" => chat_id}}}), do: chat_id
   defp extract_chat_id(_update), do: nil
-
-  defp normalize_params(params) do
-    Keyword.update(params, :allowed_updates, nil, &encode_allowed_updates/1)
-  end
-
-  defp receive_timeout_ms(params) do
-    timeout = Keyword.get(params, :timeout, 0)
-    timeout_seconds = max(timeout, 0)
-
-    (timeout_seconds + 5) * 1_000
-  end
-
-  defp encode_allowed_updates(value) when is_list(value), do: Jason.encode!(value)
-  defp encode_allowed_updates(value), do: value
 
   defp maybe_put(params, _key, nil), do: params
   defp maybe_put(params, key, value), do: Keyword.put(params, key, value)

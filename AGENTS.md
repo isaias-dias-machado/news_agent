@@ -54,6 +54,7 @@ Optional (bridge):
 Elixir app:
 
 - `TELEGRAM_BOT_TOKEN`
+- `TELEGRAM_BOT_NAME` (used as the default bot handle for bridge tests)
 
 ### Telegram bridge image
 
