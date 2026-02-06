@@ -22,6 +22,7 @@ defmodule NewsAgent.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
+      {:gemini_ex, "~> 0.9.1"},
       {:jason, "~> 1.4"},
       {:req, "~> 0.5"}
     ]
