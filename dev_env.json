@@ -4,10 +4,10 @@
   ],
   "plugins": [
     {
-      "name": "telegram_user_bridge",
+      "name": "telegram_https_client_bridge",
       "type": "docker",
       "scope": "shared",
-      "image": "telegram_tdlib_bridge",
+      "image": "telegram_https_client_bridge",
       "args": [
         "-e",
         "TELEGRAM_API_ID",
@@ -24,10 +24,16 @@
         "-e",
         "TELEGRAM_SESSION_DIR=/data",
         "-v",
-        "/home/isaias/hacking/news_agent/images/telegram-TDLib/session:/data",
+        "/home/isaias/hacking/news_agent/services/telegram_https_client_bridge/session:/data",
         "-p",
-        "127.0.0.1:8081:8081"
+        "127.0.0.1:8088:8081"
       ]
+    },
+    {
+      "name": "telegram_bot_server",
+      "type": "process",
+      "scope": "shared",
+      "cmd": "bash -lc 'export PATH=\"$HOME/.asdf/shims:$PATH\"; cd services/telegram_bot_server; mix run --no-halt'"
     },
     {
       "name": "news_agent",

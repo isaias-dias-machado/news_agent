@@ -20,14 +20,14 @@ Optional:
 export TELEGRAM_PASSWORD=...           # only if you use 2FA
 export TELEGRAM_LOGIN_CODE=...         # for non-interactive login
 export TELEGRAM_LOGIN_PASSWORD=...     # 2FA password for non-interactive login
-export TELEGRAM_SESSION_DIR=/path/...  # default is images/telegram-TDLib/session
+export TELEGRAM_SESSION_DIR=/path/...  # default is services/telegram_https_client_bridge/session
 export TELEGRAM_BRIDGE_PORT=8081
 ```
 
 3) Run in Docker (no local Python needed):
 
 ```bash
-docker compose -f images/telegram-TDLib/docker-compose.yml up --build
+docker compose -f services/telegram_https_client_bridge/docker-compose.yml up --build
 ```
 
 You'll be prompted for the login code on first run in the container terminal.
@@ -37,7 +37,7 @@ You'll be prompted for the login code on first run in the container terminal.
 Send a message to your bot (user -> bot):
 
 ```bash
-curl -s -X POST http://127.0.0.1:8081/send \
+curl -s -X POST http://127.0.0.1:8088/send \
   -H "Content-Type: application/json" \
   -d '{"peer":"@your_bot_username","text":"hello"}'
 ```
@@ -45,11 +45,11 @@ curl -s -X POST http://127.0.0.1:8081/send \
 Read bot replies (bot -> user):
 
 ```bash
-curl -s "http://127.0.0.1:8081/updates?peer=@your_bot_username"
+curl -s "http://127.0.0.1:8088/updates?peer=@your_bot_username"
 ```
 
 Use `after_id` to only fetch messages after a known id:
 
 ```bash
-curl -s "http://127.0.0.1:8081/updates?peer=@your_bot_username&after_id=12345"
+curl -s "http://127.0.0.1:8088/updates?peer=@your_bot_username&after_id=12345"
 ```

@@ -1,11 +1,10 @@
-defmodule NewsAgent.Telegram.Api do
+defmodule TelegramBotServer.Telegram.Api do
   @moduledoc """
   Telegram Bot API integration wrapper.
 
   Contract:
   - Requires `TELEGRAM_BOT_TOKEN` at runtime.
-  - Handles request/response wrapping for `getUpdates` and `sendMessage`.
-  - Returns Telegram error payloads as tagged tuples.
+  - Wraps `getUpdates` and `sendMessage` calls with typed results.
   """
 
   @type chat_id :: integer() | String.t()
@@ -85,7 +84,6 @@ defmodule NewsAgent.Telegram.Api do
   defp receive_timeout_ms(params) do
     timeout = Keyword.get(params, :timeout, 0)
     timeout_seconds = max(timeout, 0)
-
     (timeout_seconds + 5) * 1_000
   end
 

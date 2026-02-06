@@ -10,19 +10,8 @@
 # Where third-party dependencies like ExDoc output generated docs.
 /doc/
 
-# Runtime data output
-/data/
-
 # Temporary files, for example, from tests.
 /tmp/
-
-# Local Telegram MTProto user session
-/services/telegram_https_client_bridge/.env
-/services/telegram_https_client_bridge/session/
-/services/telegram_https_client_bridge/*.session
-/images/telegram-TDLib/.env
-/images/telegram-TDLib/session/
-/images/telegram-TDLib/*.session
 
 # If the VM crashes, it generates a dump, let's ignore it too.
 erl_crash.dump
@@ -31,10 +20,5 @@ erl_crash.dump
 *.ez
 
 # Ignore package tarball (built via "mix hex.build").
-news_agent-*.tar
+telegram_bot_server-*.tar
 
-workspaces/
-/workspaces/
-!/workspaces/.gitignore
-
-.commit-message-stash

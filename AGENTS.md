@@ -48,28 +48,34 @@ Telegram MTProto user bridge:
 Optional (bridge):
 
 - `TELEGRAM_LOGIN_CODE` (non-interactive login)
-- `TELEGRAM_SESSION_DIR` (defaults to `images/telegram-TDLib/session`)
+- `TELEGRAM_SESSION_DIR` (defaults to `services/telegram_https_client_bridge/session`)
 - `TELEGRAM_BRIDGE_PORT` (defaults to `8081`)
 
-Elixir app:
+Telegram bot server:
 
 - `TELEGRAM_BOT_TOKEN`
 - `TELEGRAM_BOT_NAME` (used as the default bot handle for bridge tests)
+- `TELEGRAM_BOT_SERVER_PORT` (defaults to `8090`)
 
 ### Telegram bridge image
 
 Build the Docker image before starting the env:
 
 ```bash
-docker build -t telegram_tdlib_bridge -f images/telegram-TDLib/Dockerfile .
+docker build -t telegram_https_client_bridge services/telegram_https_client_bridge
 ```
 
-The `telegram_user_bridge` plugin runs the container with port 8081 bound to localhost and persists sessions under `images/telegram-TDLib/session`.
+The `telegram_https_client_bridge` plugin runs the container with port 8088 bound to localhost and persists sessions under `services/telegram_https_client_bridge/session`.
 
 ### Bridge HTTP endpoints
 
-- `POST http://127.0.0.1:8081/send` with JSON `{ "peer": "@bot", "text": "..." }`
-- `GET http://127.0.0.1:8081/updates?peer=@bot`
+- `POST http://127.0.0.1:8088/send` with JSON `{ "peer": "@bot", "text": "..." }`
+- `GET http://127.0.0.1:8088/updates?peer=@bot`
+
+### Bot server HTTP endpoints
+
+- `POST http://127.0.0.1:8090/register` with JSON `{ "workspace_id": "alpha", "chat_ids": [123456] }`
+- `GET http://127.0.0.1:8090/queue?workspace_id=alpha&limit=25`
 
 ## Committing and Merging into master branch
 

@@ -3,8 +3,7 @@ defmodule NewsAgent.Application do
   Starts the NewsAgent supervision tree.
 
   Contract:
-  - Requires `TELEGRAM_BOT_TOKEN` for the Telegram poller.
-  - Runs the poller as a supervised task using long polling.
+  - Starts core runtime processes needed by the application.
   """
 
   use Application
@@ -12,8 +11,7 @@ defmodule NewsAgent.Application do
   @impl true
   def start(_type, _args) do
     children = [
-      {Task.Supervisor, name: NewsAgent.TaskSupervisor},
-      Supervisor.child_spec({Task, fn -> NewsAgent.Telegram.run() end}, restart: :permanent)
+      {Task.Supervisor, name: NewsAgent.TaskSupervisor}
     ]
 
     Supervisor.start_link(children, strategy: :one_for_one, name: NewsAgent.Supervisor)
