@@ -10,6 +10,7 @@ defmodule NewsAgent.Telegram.Api do
 
   @type chat_id :: integer() | String.t()
   @type update :: map()
+
   require Logger
 
   @spec get_updates(keyword()) :: {:ok, [update()]} | {:error, term()}
@@ -17,42 +18,28 @@ defmodule NewsAgent.Telegram.Api do
     token = bot_token!()
     url = "https://api.telegram.org/bot#{token}/getUpdates"
     params = normalize_params(params)
+    receive_timeout = receive_timeout_ms(params)
     start_time = System.monotonic_time()
     endpoint = "getUpdates"
 
-    receive_timeout = receive_timeout_ms(params)
+    log_request(endpoint, params)
 
-    Logger.debug(fn ->
-      "Telegram API request endpoint=#{endpoint} payload=#{inspect(params)}"
-    end)
+    result = Req.get(url: url, params: params, receive_timeout: receive_timeout)
+    duration_ms = duration_ms(start_time)
 
-    case Req.get(url: url, params: params, receive_timeout: receive_timeout) do
-      {:ok, %Req.Response{status: 200, body: %{"ok" => true, "result" => result}} = response} ->
-        Logger.debug(fn ->
-          "Telegram API response endpoint=#{endpoint} duration_ms=#{duration_ms(start_time)} response=#{inspect(response)}"
-        end)
+    log_response(endpoint, result, duration_ms)
 
+    case result do
+      {:ok, %Req.Response{status: 200, body: %{"ok" => true, "result" => result}}} ->
         {:ok, result}
 
-      {:ok, %Req.Response{body: %{"ok" => false} = body} = response} ->
-        Logger.debug(fn ->
-          "Telegram API response endpoint=#{endpoint} duration_ms=#{duration_ms(start_time)} response=#{inspect(response)}"
-        end)
-
+      {:ok, %Req.Response{body: %{"ok" => false} = body}} ->
         {:error, {:telegram_error, body}}
 
       {:ok, %Req.Response{} = response} ->
-        Logger.debug(fn ->
-          "Telegram API response endpoint=#{endpoint} duration_ms=#{duration_ms(start_time)} response=#{inspect(response)}"
-        end)
-
         {:error, {:unexpected_response, response}}
 
       {:error, error} ->
-        Logger.debug(fn ->
-          "Telegram API response endpoint=#{endpoint} duration_ms=#{duration_ms(start_time)} response=#{inspect(error)}"
-        end)
-
         {:error, error}
     end
   end
@@ -61,41 +48,28 @@ defmodule NewsAgent.Telegram.Api do
   def send_message(chat_id, text) do
     token = bot_token!()
     url = "https://api.telegram.org/bot#{token}/sendMessage"
+    payload = %{chat_id: chat_id, text: text}
     start_time = System.monotonic_time()
     endpoint = "sendMessage"
-    payload = %{chat_id: chat_id, text: text}
 
-    Logger.debug(fn ->
-      "Telegram API request endpoint=#{endpoint} payload=#{inspect(payload)}"
-    end)
+    log_request(endpoint, payload)
 
-    case Req.post(url: url, json: payload) do
-      {:ok, %Req.Response{status: 200, body: %{"ok" => true}} = response} ->
-        Logger.debug(fn ->
-          "Telegram API response endpoint=#{endpoint} duration_ms=#{duration_ms(start_time)} response=#{inspect(response)}"
-        end)
+    result = Req.post(url: url, json: payload)
+    duration_ms = duration_ms(start_time)
 
+    log_response(endpoint, result, duration_ms)
+
+    case result do
+      {:ok, %Req.Response{status: 200, body: %{"ok" => true}}} ->
         :ok
 
-      {:ok, %Req.Response{body: %{"ok" => false} = body} = response} ->
-        Logger.debug(fn ->
-          "Telegram API response endpoint=#{endpoint} duration_ms=#{duration_ms(start_time)} response=#{inspect(response)}"
-        end)
-
+      {:ok, %Req.Response{body: %{"ok" => false} = body}} ->
         {:error, {:telegram_error, body}}
 
       {:ok, %Req.Response{} = response} ->
-        Logger.debug(fn ->
-          "Telegram API response endpoint=#{endpoint} duration_ms=#{duration_ms(start_time)} response=#{inspect(response)}"
-        end)
-
         {:error, {:unexpected_response, response}}
 
       {:error, error} ->
-        Logger.debug(fn ->
-          "Telegram API response endpoint=#{endpoint} duration_ms=#{duration_ms(start_time)} response=#{inspect(error)}"
-        end)
-
         {:error, error}
     end
   end
@@ -117,6 +91,26 @@ defmodule NewsAgent.Telegram.Api do
 
   defp encode_allowed_updates(value) when is_list(value), do: Jason.encode!(value)
   defp encode_allowed_updates(value), do: value
+
+  defp log_request(endpoint, payload) do
+    Logger.debug(fn ->
+      "telegram api request endpoint=#{endpoint} payload=#{inspect(payload)}"
+    end)
+  end
+
+  defp log_response(endpoint, {:ok, %Req.Response{} = response}, duration_ms) do
+    response_payload = %{status: response.status, headers: response.headers, body: response.body}
+
+    Logger.debug(fn ->
+      "telegram api response endpoint=#{endpoint} duration_ms=#{duration_ms} response=#{inspect(response_payload)}"
+    end)
+  end
+
+  defp log_response(endpoint, {:error, error}, duration_ms) do
+    Logger.debug(fn ->
+      "telegram api response endpoint=#{endpoint} duration_ms=#{duration_ms} error=#{inspect(error)}"
+    end)
+  end
 
   defp duration_ms(start_time) do
     System.monotonic_time()

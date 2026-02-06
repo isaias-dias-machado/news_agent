@@ -54,6 +54,7 @@ Optional (bridge):
 Elixir app:
 
 - `TELEGRAM_BOT_TOKEN`
+- `TELEGRAM_BOT_NAME` (used as the default bot handle for bridge tests)
 
 ### Telegram bridge image
 
@@ -80,7 +81,8 @@ Push feature branch → update main workspace → squash merge from remote branc
 ## Iteration and testing
 
 IMPORTANT: When implementing features you should try to test them using their top level public API, if the code is not behaving as expected you should try to fix it before stopping.
-IMPORTANT: I want you to maintain create a temporary document on the workspace under the `.commit-message-stash` directory that should include the steps that were taken to test the feature.
+IMPORTANT: Maintain a temporary document on the workspace under the `.commit-message-stash` directory that should include only the steps that validated the feature or fix.
+IMPORTANT: Do not include failed or exploratory test attempts in the `.commit-message-stash` notes.
 
 ## Documentation & Boundary Contracts
 

@@ -10,13 +10,13 @@
       "image": "telegram_tdlib_bridge",
       "args": [
         "-e",
-        "TELEGRAM_API_ID=$TELEGRAM_API_ID",
+        "TELEGRAM_API_ID",
         "-e",
-        "TELEGRAM_API_HASH=$TELEGRAM_API_HASH",
+        "TELEGRAM_API_HASH",
         "-e",
-        "TELEGRAM_PHONE=$TELEGRAM_PHONE",
+        "TELEGRAM_PHONE",
         "-e",
-        "TELEGRAM_LOGIN_CODE=$TELEGRAM_LOGIN_CODE",
+        "TELEGRAM_LOGIN_CODE",
         "-e",
         "TELEGRAM_BRIDGE_HOST=0.0.0.0",
         "-e",
@@ -24,7 +24,7 @@
         "-e",
         "TELEGRAM_SESSION_DIR=/data",
         "-v",
-        "images/telegram-TDLib/session:/data",
+        "/home/isaias/hacking/news_agent/images/telegram-TDLib/session:/data",
         "-p",
         "127.0.0.1:8081:8081"
       ]
