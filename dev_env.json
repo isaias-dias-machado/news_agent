@@ -30,6 +30,16 @@
       ]
     },
     {
+      "name": "youtube_transcript_service",
+      "type": "docker",
+      "scope": "shared",
+      "image": "youtube_transcript_service",
+      "args": [
+        "-p",
+        "127.0.0.1:8082:8080"
+      ]
+    },
+    {
       "name": "news_agent",
       "type": "process",
       "cmd": "bash -lc 'export PATH=\"$HOME/.asdf/shims:$PATH\"; mix run --no-halt'"
