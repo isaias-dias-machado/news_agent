@@ -84,6 +84,18 @@ IMPORTANT: When implementing features you should try to test them using their to
 IMPORTANT: Maintain a temporary document on the workspace under the `.commit-message-stash` directory that should include only the steps that validated the feature or fix.
 IMPORTANT: Do not include failed or exploratory test attempts in the `.commit-message-stash` notes.
 
+### Manual testing workflow
+
+All manual testing workflows must be registered here.
+
+ManualTesting transcript capture:
+
+```
+source "$HOME/.env"
+export PATH="$HOME/.asdf/shims:$PATH"
+mix run -e 'IO.puts(NewsAgent.ManualTesting.run("https://youtu.be/VM5MjVALMGc?si=pkj1Yw52Ff4bKNEY"))'
+```
+
 ## Documentation & Boundary Contracts
 
 - **Internal Implementation:** No comments allowed in internal logic or private functions.
