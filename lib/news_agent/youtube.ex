@@ -4,13 +4,15 @@ defmodule NewsAgent.YouTube do
 
   Contract: callers can fetch recent video links or request transcript text for
   a specific YouTube URL. This module performs network calls to YouTube RSS and
-  TranscriptAPI and does not persist outputs.
+  the configured transcription provider selected via `YOUTUBE_TRANSCRIPTION_PROVIDER`
+  and does not persist outputs.
 
   Tensions: external services can fail or return incomplete data; callers should
   handle error tuples and avoid assuming deterministic results.
   """
 
   alias NewsAgent.YouTube.RSS
+  alias NewsAgent.YouTube.Transcription.Gemini
   alias NewsAgent.YouTube.Transcription.TranscriptAPI
   alias NewsAgent.Users.UserConfig
   require Logger
@@ -50,26 +52,63 @@ defmodule NewsAgent.YouTube do
   end
 
   @doc """
-  Fetches transcript text for a YouTube URL or video id.
+  Fetches transcript text or a Gemini-backed summary for a YouTube URL or video id.
   """
   @spec transcript_for_video(String.t(), Keyword.t()) :: {:ok, String.t()} | {:error, term()}
   def transcript_for_video(video_url, opts \\ []) when is_binary(video_url) and is_list(opts) do
-    Logger.debug(fn -> "YouTube transcript fetch url=#{video_url}" end)
+    provider = transcription_provider()
 
-    case TranscriptAPI.fetch_transcript(video_url, opts) do
-      {:ok, transcript} ->
-        Logger.debug(fn ->
-          "YouTube transcript fetched url=#{video_url} bytes=#{byte_size(transcript)}"
-        end)
+    Logger.debug(fn -> "YouTube transcript fetch url=#{video_url} provider=#{provider}" end)
 
-        {:ok, transcript}
+    case provider do
+      :gemini ->
+        case Gemini.summarize_video(video_url, opts) do
+          {:ok, summary} ->
+            Logger.debug(fn ->
+              "YouTube transcript fetched url=#{video_url} bytes=#{byte_size(summary)}"
+            end)
 
-      {:error, reason} ->
-        Logger.debug(fn ->
-          "YouTube transcript failed url=#{video_url} reason=#{inspect(reason)}"
-        end)
+            {:ok, summary}
 
-        {:error, reason}
+          {:error, reason} ->
+            Logger.debug(fn ->
+              "YouTube transcript failed url=#{video_url} reason=#{inspect(reason)}"
+            end)
+
+            {:error, reason}
+        end
+
+      :transcript_api ->
+        case TranscriptAPI.fetch_transcript(video_url, opts) do
+          {:ok, transcript} ->
+            Logger.debug(fn ->
+              "YouTube transcript fetched url=#{video_url} bytes=#{byte_size(transcript)}"
+            end)
+
+            {:ok, transcript}
+
+          {:error, reason} ->
+            Logger.debug(fn ->
+              "YouTube transcript failed url=#{video_url} reason=#{inspect(reason)}"
+            end)
+
+            {:error, reason}
+        end
+    end
+  end
+
+  defp transcription_provider do
+    provider =
+      case System.get_env("YOUTUBE_TRANSCRIPTION_PROVIDER") do
+        value when is_binary(value) -> String.trim(value)
+        _ -> ""
+      end
+
+    case String.downcase(provider) do
+      "transcript_api" -> :transcript_api
+      "gemini" -> :gemini
+      "" -> :gemini
+      _ -> :gemini
     end
   end
 
