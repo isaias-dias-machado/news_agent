@@ -1,9 +1,11 @@
-defmodule NewsAgent.Chat.TelegramClient do
+defmodule NewsAgent.TelegramBot.Adapter.Real do
   @moduledoc false
+
+  @behaviour NewsAgent.TelegramBot.Adapter
 
   require Logger
 
-  @spec send_message(String.t(), String.t(), keyword()) :: :ok | {:error, term()}
+  @impl true
   def send_message(chat_id, text, opts \\ []) when is_binary(chat_id) and is_binary(text) do
     with {:ok, token} <- token(opts) do
       client = Req.new(base_url: "https://api.telegram.org/bot#{token}")
@@ -31,7 +33,7 @@ defmodule NewsAgent.Chat.TelegramClient do
     end
   end
 
-  @spec get_updates(keyword()) :: {:ok, [map()]} | {:error, term()}
+  @impl true
   def get_updates(params \\ []) when is_list(params) do
     with {:ok, token} <- token(params) do
       params = Keyword.drop(params, [:telegram_token])

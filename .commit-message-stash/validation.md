@@ -1,2 +1,2 @@
-- export PATH="$HOME/.asdf/shims:$PATH" && mix test test/news_agent/bot_server_test.exs
-- source "$HOME/.env" && export PATH="$HOME/.asdf/shims:$PATH" && mix run -e 'IO.inspect(NewsAgent.ManualTesting.run("https://youtu.be/VM5MjVALMGc?si=pkj1Yw52Ff4bKNEY"))'
+mix test
+mix run -e 'IO.inspect(NewsAgent.ManualTesting.run("https://youtu.be/VM5MjVALMGc?si=pkj1Yw52Ff4bKNEY"))'

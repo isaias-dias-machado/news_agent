@@ -1,13 +1,15 @@
-defmodule NewsAgent.BotServer do
+defmodule NewsAgent.TelegramBot do
   @moduledoc """
-  Boundary for an in-memory Telegram update queue.
+  Boundary for Telegram delivery and polling.
 
-  Contract: callers enqueue raw Telegram update maps and dequeue them in FIFO
-  order. Updates are stored only in memory and are removed once dequeued.
+  Contract: callers enqueue and dequeue raw Telegram update maps for local
+  processing, and use `get_updates/1` and `send_message/3` to interact with the
+  Telegram API via a runtime-selected adapter.
 
-  Tensions: the queue is process-local and volatile, so restarts drop pending
-  updates and there is no routing, validation, or persistence. Callers must
-  decide how to filter, retry, and persist updates outside this boundary.
+  Tensions: the in-memory queue is process-local and volatile, so restarts drop
+  pending updates. Adapter calls depend on external services when in real mode,
+  or on in-memory state when in mock mode, so callers must handle retries,
+  deduplication, and persistence outside this boundary.
   """
 
   use GenServer
@@ -24,8 +26,8 @@ defmodule NewsAgent.BotServer do
   @doc """
   Enqueues a Telegram update for later processing.
   """
-  @spec enqueue(update(), keyword()) :: :ok
-  def enqueue(update, opts \\ []) do
+  @spec enqueue_update(update(), keyword()) :: :ok
+  def enqueue_update(update, opts \\ []) do
     GenServer.call(server_name(opts), {:enqueue, update})
   end
 
@@ -44,6 +46,22 @@ defmodule NewsAgent.BotServer do
   @spec reset(keyword()) :: :ok
   def reset(opts \\ []) do
     GenServer.call(server_name(opts), :reset)
+  end
+
+  @doc """
+  Fetches updates from Telegram using the configured adapter.
+  """
+  @spec get_updates(keyword()) :: {:ok, [map()]} | {:error, term()}
+  def get_updates(params \\ []) when is_list(params) do
+    adapter().get_updates(params)
+  end
+
+  @doc """
+  Sends a message to a Telegram chat using the configured adapter.
+  """
+  @spec send_message(String.t(), String.t(), keyword()) :: :ok | {:error, term()}
+  def send_message(chat_id, text, opts \\ []) when is_binary(chat_id) and is_binary(text) do
+    adapter().send_message(chat_id, text, opts)
   end
 
   @impl true
@@ -80,5 +98,12 @@ defmodule NewsAgent.BotServer do
 
   defp server_name(opts) do
     Keyword.get(opts, :server, __MODULE__)
+  end
+
+  defp adapter do
+    case System.get_env("NEWS_AGENT_TELEGRAM_MODE", "real") do
+      "mock" -> NewsAgent.TelegramBot.Adapter.Mock
+      _ -> NewsAgent.TelegramBot.Adapter.Real
+    end
   end
 end
