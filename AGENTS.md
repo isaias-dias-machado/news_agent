@@ -52,11 +52,10 @@ Optional (bridge):
 - `TELEGRAM_SESSION_DIR` (defaults to `services/telegram_https_client_bridge/session`)
 - `TELEGRAM_BRIDGE_PORT` (defaults to `8081`)
 
-Telegram bot server:
+Telegram bot:
 
 - `TELEGRAM_BOT_TOKEN`
 - `TELEGRAM_BOT_NAME` (used as the default bot handle for bridge tests)
-- `TELEGRAM_BOT_SERVER_PORT` (defaults to `8090`)
 
 ### Telegram bridge image
 
@@ -72,11 +71,6 @@ The `telegram_https_client_bridge` plugin runs the container with port 8088 boun
 
 - `POST http://127.0.0.1:8088/send` with JSON `{ "peer": "@bot", "text": "..." }`
 - `GET http://127.0.0.1:8088/updates?peer=@bot`
-
-### Bot server HTTP endpoints
-
-- `POST http://127.0.0.1:8090/register` with JSON `{ "workspace_id": "alpha", "chat_ids": [123456] }`
-- `GET http://127.0.0.1:8090/queue?workspace_id=alpha&limit=25`
 
 ## Committing and Merging into master branch
 

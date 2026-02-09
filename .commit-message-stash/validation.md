@@ -1,13 +1,2 @@
-- export PATH="$HOME/.asdf/shims:$PATH" && mix run -e "IO.inspect(NewsAgent.ManualTesting.run_chat_flow(\"Hello from session\"))"
-- source "$HOME/.env" && curl -s -X POST http://127.0.0.1:8088/send -H "Content-Type: application/json" -d "{\"peer\":\"@${TELEGRAM_BOT_NAME}\",\"text\":\"remember this: blue cat\"}"
-- source "$HOME/.env" && curl -s "http://127.0.0.1:8088/updates?peer=@${TELEGRAM_BOT_NAME}"
-- source "$HOME/.env" && curl -s -X POST http://127.0.0.1:8088/send -H "Content-Type: application/json" -d "{\"peer\":\"@${TELEGRAM_BOT_NAME}\",\"text\":\"OK\"}"
-- source "$HOME/.env" && curl -s "http://127.0.0.1:8088/updates?peer=@${TELEGRAM_BOT_NAME}"
-- source "$HOME/.env" && curl -s -X POST http://127.0.0.1:8088/send -H "Content-Type: application/json" -d "{\"peer\":\"@${TELEGRAM_BOT_NAME}\",\"text\":\"What did I ask you to remember?\"}"
-- source "$HOME/.env" && curl -s "http://127.0.0.1:8088/updates?peer=@${TELEGRAM_BOT_NAME}"
-- source "$HOME/.env" && curl -s -X POST http://127.0.0.1:8088/send -H "Content-Type: application/json" -d "{\"peer\":\"@${TELEGRAM_BOT_NAME}\",\"text\":\"linking prompt check\"}"
-- source "$HOME/.env" && curl -s "http://127.0.0.1:8088/updates?peer=@${TELEGRAM_BOT_NAME}"
-- source "$HOME/.env" && curl -s -X POST http://127.0.0.1:8088/send -H "Content-Type: application/json" -d "{\"peer\":\"@${TELEGRAM_BOT_NAME}\",\"text\":\"OK\"}"
-- source "$HOME/.env" && curl -s "http://127.0.0.1:8088/updates?peer=@${TELEGRAM_BOT_NAME}"
-- source "$HOME/.env" && curl -s -X POST http://127.0.0.1:8088/send -H "Content-Type: application/json" -d "{\"peer\":\"@${TELEGRAM_BOT_NAME}\",\"text\":\"should skip linking now\"}"
-- source "$HOME/.env" && curl -s "http://127.0.0.1:8088/updates?peer=@${TELEGRAM_BOT_NAME}"
+- export PATH="$HOME/.asdf/shims:$PATH" && mix test test/news_agent/bot_server_test.exs
+- source "$HOME/.env" && export PATH="$HOME/.asdf/shims:$PATH" && mix run -e 'IO.inspect(NewsAgent.ManualTesting.run("https://youtu.be/VM5MjVALMGc?si=pkj1Yw52Ff4bKNEY"))'
