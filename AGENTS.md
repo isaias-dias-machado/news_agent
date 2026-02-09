@@ -97,6 +97,30 @@ IMPORTANT: When implementing features you should try to test them using their to
 IMPORTANT: Maintain a temporary document on the workspace under the `.commit-message-stash` directory that should include only the steps that validated the feature or fix.
 IMPORTANT: Do not include failed or exploratory test attempts in the `.commit-message-stash` notes.
 
+## Observing persisted data
+
+To inspect DETS-backed KV data during manual testing:
+
+1) Persist a record via the public API:
+
+```
+source "$HOME/.env"
+export PATH="$HOME/.asdf/shims:$PATH"
+mix run -e 'canonical = "https://example.com/feed"; strategy = %{strategy: %{type: "feed", source_url: canonical}, confidence: 0.9, last_verified_at: DateTime.utc_now()}; IO.inspect(NewsAgent.Sources.persist_strategy(canonical, strategy))'
+```
+
+2) Verify the DETS file exists:
+
+```
+ls -l data/kv/source_strategies.dets
+```
+
+3) Inspect stored entries:
+
+```
+mix run -e '{:ok, table} = NewsAgent.KVStore.open(:source_strategies); entries = NewsAgent.KVStore.all(table); IO.inspect(entries); _ = NewsAgent.KVStore.close(table)'
+```
+
 ### Manual testing workflow
 
 All manual testing workflows must be registered here.
