@@ -165,6 +165,7 @@ export PATH="$HOME/.asdf/shims:$PATH"
 - Read the docs and options before using tasks (by using `mix help task_name`)
 - To debug test failures, run tests in a specific file with `mix test test/my_test.exs` or run all previously failed tests with `mix test --failed`
 - `mix deps.clean --all` is **almost never needed**. **Avoid** using it unless you have good reason
+- To discover available documentation in the project, use `mix help` to list tasks and `mix help <task>` for task docs. For Elixir module docs, prefer `mix help Module[.Function[.Arity]]` and only search the web when module docs are unavailable.
 
 ## Test guidelines
 
