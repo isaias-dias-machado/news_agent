@@ -38,7 +38,7 @@
     {
       "name": "news_agent",
       "type": "process",
-      "cmd": "bash -lc 'export PATH=\"$HOME/.asdf/shims:$PATH\"; mix run --no-halt'"
+      "cmd": "bash -lc 'export PATH=\"$HOME/.asdf/shims:$PATH\"; source \"$HOME/.env\"; mix run --no-halt'"
     }
   ]
 }

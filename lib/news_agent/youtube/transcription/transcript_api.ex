@@ -189,9 +189,6 @@ defmodule NewsAgent.YouTube.Transcription.TranscriptAPI do
   end
 
   defp api_key do
-    case System.get_env("TRANSCRIPT_API_KEY") do
-      key when is_binary(key) and key != "" -> {:ok, key}
-      _ -> {:error, :missing_api_key}
-    end
+    {:ok, System.fetch_env!("TRANSCRIPT_API_KEY")}
   end
 end

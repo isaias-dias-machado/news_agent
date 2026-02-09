@@ -5,6 +5,7 @@ defmodule TelegramBotServer.Queue do
   Contract:
   - Chat ownership is registered per workspace.
   - Incoming updates are routed by chat id to the owning workspace queue.
+  - Unknown chat ids are routed to the `unmapped` workspace queue.
   - Messages are removed from the queue when read.
   """
 
@@ -19,6 +20,8 @@ defmodule TelegramBotServer.Queue do
           update: map(),
           received_at: integer()
         }
+
+  @unmapped_workspace_id "unmapped"
 
   @spec start_link(keyword()) :: GenServer.on_start()
   def start_link(opts \\ []) do
@@ -59,24 +62,20 @@ defmodule TelegramBotServer.Queue do
       chat_id ->
         chat_id = normalize_chat_id(chat_id)
 
-        case Map.get(state.chat_map, chat_id) do
-          nil ->
-            {:reply, {:error, :unmapped_chat}, state}
+        workspace_id = Map.get(state.chat_map, chat_id, @unmapped_workspace_id)
 
-          workspace_id ->
-            message = %{
-              id: state.next_id,
-              workspace_id: workspace_id,
-              chat_id: chat_id,
-              update: update,
-              received_at: System.system_time(:millisecond)
-            }
+        message = %{
+          id: state.next_id,
+          workspace_id: workspace_id,
+          chat_id: chat_id,
+          update: update,
+          received_at: System.system_time(:millisecond)
+        }
 
-            queue = Map.get(state.queues, workspace_id, :queue.new())
-            queue = :queue.in(message, queue)
-            queues = Map.put(state.queues, workspace_id, queue)
-            {:reply, {:ok, message.id}, %{state | next_id: state.next_id + 1, queues: queues}}
-        end
+        queue = Map.get(state.queues, workspace_id, :queue.new())
+        queue = :queue.in(message, queue)
+        queues = Map.put(state.queues, workspace_id, queue)
+        {:reply, {:ok, message.id}, %{state | next_id: state.next_id + 1, queues: queues}}
     end
   end
 
