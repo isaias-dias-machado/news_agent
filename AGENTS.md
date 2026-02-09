@@ -35,6 +35,7 @@ This project uses the dev-env-mcp MCP server. Plugin commands live in `dev_env.j
 ### Usage
 
 IMPORTANT: you should not do work, you are the "planer". start a "builder" sub-agent in the workspace directory.
+The main agent owns workspace creation/selection and can create as many workspaces as needed. For each workspace, spawn exactly one sub-agent with its workdir set to that workspace root to promote parallelism and isolation.
 After iterations, always commit fixes so I can diff them from the master branch
 
 ### Required environment
