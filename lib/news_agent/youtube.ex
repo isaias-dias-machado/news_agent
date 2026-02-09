@@ -4,11 +4,12 @@ defmodule NewsAgent.YouTube do
 
   Contract: callers can fetch recent video links or request transcript text for
   a specific YouTube URL. This module performs network calls to YouTube RSS and
-  the configured transcription provider selected via `YOUTUBE_TRANSCRIPTION_PROVIDER`
-  and does not persist outputs.
+  the configured transcription provider selected via compile-time config
+  (`:news_agent, :youtube_transcription`) and does not persist outputs.
 
   Tensions: external services can fail or return incomplete data; callers should
-  handle error tuples and avoid assuming deterministic results.
+  handle error tuples and avoid assuming deterministic results. Provider modules
+  emit telemetry events for transcription runs.
   """
 
   alias NewsAgent.YouTube.RSS
@@ -54,7 +55,8 @@ defmodule NewsAgent.YouTube do
   @doc """
   Fetches transcript text or a Gemini-backed summary for a YouTube URL or video id.
   """
-  @spec transcript_for_video(String.t(), Keyword.t()) :: {:ok, String.t()} | {:error, term()}
+  @spec transcript_for_video(String.t(), Keyword.t()) ::
+          {:ok, String.t()} | {:error, {term(), String.t()}}
   def transcript_for_video(video_url, opts \\ []) when is_binary(video_url) and is_list(opts) do
     provider = transcription_provider()
 
@@ -99,15 +101,22 @@ defmodule NewsAgent.YouTube do
 
   defp transcription_provider do
     provider =
-      case System.get_env("YOUTUBE_TRANSCRIPTION_PROVIDER") do
-        value when is_binary(value) -> String.trim(value)
-        _ -> ""
+      :news_agent
+      |> Application.get_env(:youtube_transcription, [])
+      |> Keyword.get(:provider, :gemini)
+
+    normalized =
+      case provider do
+        value when is_atom(value) -> value
+        value when is_binary(value) -> value |> String.trim() |> String.downcase()
+        _ -> :gemini
       end
 
-    case String.downcase(provider) do
+    case normalized do
+      :transcript_api -> :transcript_api
+      :gemini -> :gemini
       "transcript_api" -> :transcript_api
       "gemini" -> :gemini
-      "" -> :gemini
       _ -> :gemini
     end
   end
