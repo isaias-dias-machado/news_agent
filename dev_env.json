@@ -30,12 +30,6 @@
       ]
     },
     {
-      "name": "telegram_bot_server",
-      "type": "process",
-      "scope": "shared",
-      "cmd": "bash -lc 'export PATH=\"$HOME/.asdf/shims:$PATH\"; cd services/telegram_bot_server; mix run --no-halt'"
-    },
-    {
       "name": "news_agent",
       "type": "process",
       "cmd": "bash -lc 'export PATH=\"$HOME/.asdf/shims:$PATH\"; source \"$HOME/.env\"; mix run --no-halt'"

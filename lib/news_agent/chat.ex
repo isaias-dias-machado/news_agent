@@ -3,35 +3,29 @@ defmodule NewsAgent.Chat do
   Boundary for chat onboarding and LLM interaction.
 
   Contract: callers provide Telegram updates or invoke polling and receive
-  responses that are delivered to the originating chat. This module performs
-  HTTP requests to the bot server and Telegram API, keeps onboarding state in
-  memory, and routes user input to the configured LLM provider.
+  responses that are delivered to the originating chat. This module pulls from
+  the in-memory bot queue, calls the Telegram API for responses, keeps
+  onboarding state in memory, and routes user input to the configured LLM
+  provider.
 
   Tensions: message delivery depends on external services and network
   availability; callers should expect transient failures and ensure the bot
   server queues are polled frequently enough to avoid backlog growth.
   """
 
-  alias NewsAgent.Chat.{BotServerClient, Session, TelegramClient}
-
-  @unmapped_workspace_id "unmapped"
+  alias NewsAgent.BotServer
+  alias NewsAgent.Chat.{Session, TelegramClient}
 
   @doc """
   Polls the bot server queues and handles updates.
   """
   @spec poll(keyword()) :: {:ok, non_neg_integer()} | {:error, term()}
   def poll(opts \\ []) do
-    workspace_id = workspace_id(opts)
     limit = Keyword.get(opts, :limit, 25)
-    opts = Keyword.put(opts, :workspace_id, workspace_id)
-
-    with {:ok, unmapped} <- BotServerClient.dequeue(@unmapped_workspace_id, limit, opts),
-         {:ok, mapped} <- BotServerClient.dequeue(workspace_id, limit, opts) do
-      messages = unmapped ++ mapped
-      results = Enum.map(messages, &handle_message(&1, opts))
-      handled = Enum.count(results, &match?({:ok, _}, &1))
-      {:ok, handled}
-    end
+    updates = BotServer.dequeue(limit)
+    results = Enum.map(updates, &handle_update(&1, opts))
+    handled = Enum.count(results, &match?({:ok, _}, &1))
+    {:ok, handled}
   end
 
   @doc """
@@ -52,7 +46,6 @@ defmodule NewsAgent.Chat do
   defp handle_message(message, opts) do
     chat_id = normalize_chat_id(Map.get(message, "chat_id"))
     update = Map.get(message, "update", %{})
-    opts = Keyword.put(opts, :workspace_id, workspace_id(opts))
 
     case Session.handle_update(chat_id, update, opts) do
       {:ok, {reply, status}} ->
@@ -87,11 +80,4 @@ defmodule NewsAgent.Chat do
   defp normalize_chat_id(chat_id) when is_integer(chat_id), do: Integer.to_string(chat_id)
   defp normalize_chat_id(chat_id) when is_binary(chat_id), do: chat_id
   defp normalize_chat_id(chat_id), do: to_string(chat_id)
-
-  defp workspace_id(opts) do
-    case Keyword.get(opts, :workspace_id) || System.get_env("NEWS_AGENT_WORKSPACE_ID") do
-      value when is_binary(value) and value != "" -> value
-      _ -> "default"
-    end
-  end
 end

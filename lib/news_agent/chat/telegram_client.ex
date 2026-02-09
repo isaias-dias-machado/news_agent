@@ -31,12 +31,49 @@ defmodule NewsAgent.Chat.TelegramClient do
     end
   end
 
+  @spec get_updates(keyword()) :: {:ok, [map()]} | {:error, term()}
+  def get_updates(params \\ []) when is_list(params) do
+    with {:ok, token} <- token(params) do
+      params = Keyword.drop(params, [:telegram_token])
+      params = normalize_params(params)
+      receive_timeout = receive_timeout_ms(params)
+      client = Req.new(base_url: "https://api.telegram.org/bot#{token}")
+
+      case Req.get(client, url: "/getUpdates", params: params, receive_timeout: receive_timeout) do
+        {:ok, %Req.Response{status: 200, body: %{"ok" => true, "result" => result}}} ->
+          {:ok, result}
+
+        {:ok, %Req.Response{body: %{"ok" => false} = body}} ->
+          {:error, {:telegram_error, body}}
+
+        {:ok, %Req.Response{} = response} ->
+          {:error, {:unexpected_response, response}}
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    end
+  end
+
   defp token(opts) do
     case Keyword.get(opts, :telegram_token) do
       value when is_binary(value) and value != "" -> {:ok, value}
       _ -> {:ok, System.fetch_env!("TELEGRAM_BOT_TOKEN")}
     end
   end
+
+  defp normalize_params(params) do
+    Keyword.update(params, :allowed_updates, nil, &encode_allowed_updates/1)
+  end
+
+  defp receive_timeout_ms(params) do
+    timeout = Keyword.get(params, :timeout, 0)
+    timeout_seconds = max(timeout, 0)
+    (timeout_seconds + 5) * 1_000
+  end
+
+  defp encode_allowed_updates(value) when is_list(value), do: Jason.encode!(value)
+  defp encode_allowed_updates(value), do: value
 
   defp truncate_text(text) do
     if String.length(text) > 160 do

@@ -3,7 +3,7 @@ defmodule NewsAgent.Chat.Session do
 
   use GenServer
 
-  alias NewsAgent.Chat.{BotServerClient, LLM}
+  alias NewsAgent.Chat.LLM
   alias NewsAgent.Users.UserConfig
 
   @spec start_link({String.t(), keyword()}) :: GenServer.on_start()
@@ -85,11 +85,7 @@ defmodule NewsAgent.Chat.Session do
     if ok_message?(text) do
       link_chat(chat_id, opts, history)
     else
-      with :ok <- maybe_register(chat_id, opts) do
-        {{:ok, {onboarding_prompt(), :pending}}, :pending, history}
-      else
-        {:error, reason} -> {{:error, reason}, :unknown, history}
-      end
+      {{:ok, {onboarding_prompt(), :pending}}, :pending, history}
     end
   end
 
@@ -113,19 +109,6 @@ defmodule NewsAgent.Chat.Session do
       {:error, _reason} ->
         log_llm_error(chat_id)
         {{:ok, {"Sorry, I hit an error while responding.", :linked}}, :linked, history}
-    end
-  end
-
-  defp maybe_register(chat_id, opts) do
-    if Keyword.get(opts, :register?, true) do
-      workspace_id = Keyword.get(opts, :workspace_id, "default")
-
-      case BotServerClient.register(workspace_id, [chat_id], opts) do
-        {:ok, _} -> :ok
-        {:error, reason} -> {:error, reason}
-      end
-    else
-      :ok
     end
   end
 
@@ -167,24 +150,21 @@ defmodule NewsAgent.Chat.Session do
   end
 
   defp link_chat(chat_id, opts, history) do
-    with :ok <- maybe_register(chat_id, opts),
-         user_id when is_binary(user_id) <- user_id(opts) do
-      case UserConfig.persist_chat_id(user_id, chat_id) do
-        :ok ->
-          {{:ok, {"Linked. You can start chatting.", :linked}}, :linked, history}
+    case user_id(opts) do
+      user_id when is_binary(user_id) ->
+        case UserConfig.persist_chat_id(user_id, chat_id) do
+          :ok ->
+            {{:ok, {"Linked. You can start chatting.", :linked}}, :linked, history}
 
-        {:error, :missing_user_config} ->
-          {{:ok, {"Please register in the app before linking this chat.", :pending}}, :pending,
-           history}
+          {:error, :missing_user_config} ->
+            {{:ok, {"Please register in the app before linking this chat.", :pending}}, :pending,
+             history}
 
-        {:error, _reason} ->
-          {{:ok, {"Linking failed. Please try again.", :pending}}, :pending, history}
-      end
-    else
-      {:error, reason} ->
-        {{:error, reason}, :pending, history}
+          {:error, _reason} ->
+            {{:ok, {"Linking failed. Please try again.", :pending}}, :pending, history}
+        end
 
-      nil ->
+      _ ->
         {{:ok, {"Please register in the app before linking this chat.", :pending}}, :pending,
          history}
     end
@@ -194,7 +174,7 @@ defmodule NewsAgent.Chat.Session do
     String.starts_with?(String.trim(text), "/")
   end
 
-  defp handle_command(status, chat_id, text, opts, history) do
+  defp handle_command(status, _chat_id, text, _opts, history) do
     command =
       text
       |> String.trim()
@@ -206,22 +186,14 @@ defmodule NewsAgent.Chat.Session do
         if status == :linked do
           {{:ok, {"You are already linked.", :linked}}, :linked, history}
         else
-          with :ok <- maybe_register(chat_id, opts) do
-            {{:ok, {onboarding_prompt(), :pending}}, :pending, history}
-          else
-            {:error, reason} -> {{:error, reason}, status, history}
-          end
+          {{:ok, {onboarding_prompt(), :pending}}, :pending, history}
         end
 
       "/reset" ->
         if status == :linked do
           {{:ok, {"Context reset. You can continue chatting.", :linked}}, :linked, []}
         else
-          with :ok <- maybe_register(chat_id, opts) do
-            {{:ok, {onboarding_prompt(), :pending}}, :pending, history}
-          else
-            {:error, reason} -> {{:error, reason}, status, history}
-          end
+          {{:ok, {onboarding_prompt(), :pending}}, :pending, history}
         end
 
       "/help" ->

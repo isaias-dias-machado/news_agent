@@ -12,9 +12,11 @@ defmodule NewsAgent.Application do
   def start(_type, _args) do
     children = [
       {Task.Supervisor, name: NewsAgent.TaskSupervisor},
+      NewsAgent.BotServer,
       {Registry, keys: :unique, name: NewsAgent.Chat.Registry},
       {DynamicSupervisor, strategy: :one_for_one, name: NewsAgent.Chat.Supervisor},
-      NewsAgent.Chat.Poller
+      NewsAgent.Chat.Poller,
+      NewsAgent.Chat.TelegramPoller
     ]
 
     Supervisor.start_link(children, strategy: :one_for_one, name: NewsAgent.Supervisor)
