@@ -121,6 +121,14 @@ ls -l data/kv/source_strategies.dets
 mix run -e '{:ok, table} = NewsAgent.KVStore.open(:source_strategies); entries = NewsAgent.KVStore.all(table); IO.inspect(entries); _ = NewsAgent.KVStore.close(table)'
 ```
 
+4) Dump a tree view with `mix kv.dump` (defaults to all tables). Use `--table` to target one table and `--limit` to cap entries.
+
+```
+mix kv.dump
+mix kv.dump --table source_strategies
+mix kv.dump --table source_strategies --limit 25
+```
+
 ### Manual testing workflow
 
 All manual testing workflows must be registered here.
