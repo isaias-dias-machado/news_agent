@@ -36,7 +36,6 @@ defmodule NewsAgent.TelegramBotTest do
   end
 
   test "mock adapter enqueues and returns updates" do
-    start_supervised!(Mock)
     :ok = Mock.reset()
 
     update = %{"update_id" => 10, "message" => %{"text" => "hello"}}
@@ -47,7 +46,6 @@ defmodule NewsAgent.TelegramBotTest do
   end
 
   test "mock adapter records sent messages" do
-    start_supervised!(Mock)
     :ok = Mock.reset()
 
     :ok = Mock.send_message("123", "hi", locale: "en")
@@ -56,7 +54,6 @@ defmodule NewsAgent.TelegramBotTest do
   end
 
   test "mock adapter reset clears state" do
-    start_supervised!(Mock)
     :ok = Mock.enqueue_update(%{"update_id" => 22})
     :ok = Mock.send_message("456", "ok")
     :ok = Mock.reset()

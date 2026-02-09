@@ -101,7 +101,7 @@ defmodule NewsAgent.TelegramBot do
   end
 
   defp adapter do
-    case System.get_env("NEWS_AGENT_TELEGRAM_MODE", "real") do
+    case System.get_env("NEWS_AGENT_TELEGRAM_MODE", "mock") do
       "mock" -> NewsAgent.TelegramBot.Adapter.Mock
       _ -> NewsAgent.TelegramBot.Adapter.Real
     end
