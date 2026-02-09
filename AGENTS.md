@@ -61,8 +61,8 @@ Telegram bot:
 
 Set `NEWS_AGENT_TELEGRAM_MODE` to switch adapters at runtime:
 
-- `NEWS_AGENT_TELEGRAM_MODE=real` (default) uses the real Telegram HTTP API.
-- `NEWS_AGENT_TELEGRAM_MODE=mock` uses the in-memory mock adapter for tests.
+- `NEWS_AGENT_TELEGRAM_MODE=mock` (default) uses the in-memory mock adapter for tests.
+- `NEWS_AGENT_TELEGRAM_MODE=real` uses the real Telegram HTTP API.
 
 The mock adapter stores queued updates and sent messages in memory. Use
 `NewsAgent.TelegramBot.Adapter.Mock.enqueue_update/1`,
