@@ -4,14 +4,15 @@ defmodule NewsAgent.Gemini do
 
   Contract: callers provide text or a URL and receive a summarized string when
   Gemini returns extractable text. This module performs network calls to the
-  Gemini API, requires `GEMINI_API_KEY`, and honors `GEMINI_VIDEO_MODEL` and
-  `GEMINI_VIDEO_MIME_TYPE` for video inputs.
+  Gemini API, requires `GEMINI_API_KEY`, and honors compile-time video defaults
+  under `:news_agent, :gemini_video` while emitting telemetry for video runs.
 
   Tensions: responses depend on external availability, model behavior, and
   upstream errors; callers should expect transient failures and empty responses.
   """
 
   alias Gemini
+  require Logger
 
   @model "gemini-2.0-flash-lite"
 
@@ -63,96 +64,182 @@ defmodule NewsAgent.Gemini do
   @doc """
   Summarizes video content using Gemini multimodal file inputs.
 
-  Targets 900-1100 words in 4-6 paragraphs and may request a continuation when
-  the initial response is short or incomplete.
+  Targets the configured word range and accepts the summary as returned.
   """
-  @spec summarize_video_url(String.t(), Keyword.t()) :: {:ok, String.t()} | {:error, term()}
+  @spec summarize_video_url(String.t(), Keyword.t()) ::
+          {:ok, String.t()} | {:error, {term(), String.t()}}
   def summarize_video_url(video_url, opts \\ []) when is_binary(video_url) and is_list(opts) do
-    prompt =
-      "Summarize the video content. Target 900-1100 words in 4-6 paragraphs. Focus on the main segments and key takeaways. If you cannot access the video content, reply with: Unable to access video content for summarization."
+    config = video_config()
+    prompt = video_prompt(config.target_words)
 
-    {mime_type, options} = Keyword.pop(opts, :mime_type, video_mime_type())
+    {mime_type, options} = Keyword.pop(opts, :mime_type, config.mime_type)
 
     options =
       Keyword.merge(
-        [model: video_model(), max_output_tokens: 2800, temperature: 0.3],
+        [model: config.model, max_output_tokens: config.max_output_tokens, temperature: 0.3],
         options
       )
 
     content = [%{file_uri: video_url, mime_type: mime_type}, prompt]
+    start_time = System.monotonic_time()
+    telemetry_metadata = telemetry_metadata(video_url, options[:model], mime_type)
 
-    with {:ok, response} <- Gemini.generate(content, options),
-         {:ok, summary} <- Gemini.extract_text(response) do
-      summary = String.trim(summary)
+    :telemetry.execute(
+      telemetry_event(:start),
+      base_measurements(0),
+      telemetry_metadata
+    )
 
-      if needs_continuation?(summary) do
-        continue_summary(summary, options)
-      else
+    result = generate_video_summary(video_url, content, options, config)
+    duration_ms = duration_ms(start_time)
+
+    case result do
+      {:ok, summary, attempts} ->
+        measurements = %{
+          duration_ms: duration_ms,
+          word_count: word_count(summary),
+          bytes: byte_size(summary),
+          attempts: attempts
+        }
+
+        :telemetry.execute(telemetry_event(:stop), measurements, telemetry_metadata)
+
         {:ok, summary}
-      end
-    else
-      {:error, reason} -> {:error, reason}
-      {:ok, nil} -> {:error, :empty_response}
-      nil -> {:error, :empty_response}
+
+      {:error, reason, attempts} ->
+        measurements = %{
+          duration_ms: duration_ms,
+          word_count: 0,
+          bytes: 0,
+          attempts: attempts
+        }
+
+        :telemetry.execute(
+          telemetry_event(:error),
+          measurements,
+          Map.put(telemetry_metadata, :reason, reason)
+        )
+
+        {:error, {reason, video_url}}
     end
   end
 
-  defp continue_summary(summary, options) do
-    continuation_prompt =
-      "Continue the summary to reach 900-1100 words total. Keep 4-6 paragraphs overall and do not repeat sentences. Previous summary:\n\n" <>
-        summary
-
-    case Gemini.generate(continuation_prompt, options) do
-      {:ok, response} ->
+  defp generate_video_summary(video_url, content, options, config) do
+    case generate_with_retry(content, options, video_url, config) do
+      {:ok, response, attempts} ->
         case Gemini.extract_text(response) do
-          {:ok, continuation} ->
-            continuation = String.trim(continuation)
+          {:ok, summary} when is_binary(summary) ->
+            summary = String.trim(summary)
 
-            if continuation == "" do
-              {:ok, summary}
+            if summary == "" do
+              {:error, :empty_response, attempts}
             else
-              {:ok, String.trim(summary <> " " <> continuation)}
+              {:ok, summary, attempts}
             end
 
-          _ ->
-            {:ok, summary}
+          {:ok, nil} ->
+            {:error, :empty_response, attempts}
+
+          nil ->
+            {:error, :empty_response, attempts}
+
+          {:error, reason} ->
+            {:error, reason, attempts}
         end
 
-      _ ->
-        {:ok, summary}
+      {:error, reason, attempts} ->
+        {:error, reason, attempts}
     end
   end
 
-  defp needs_continuation?(summary) do
-    word_count =
-      summary
-      |> String.split(~r/\s+/, trim: true)
-      |> length()
-
-    word_count < 900 or not ends_with_terminator?(summary)
+  defp generate_with_retry(payload, options, video_url, config) do
+    do_generate_with_retry(payload, options, video_url, config.retries, config.backoff_ms, 1)
   end
 
-  defp ends_with_terminator?(summary) do
-    case String.trim(summary) do
-      "" ->
-        false
+  defp do_generate_with_retry(payload, options, video_url, retries, backoff_ms, attempt) do
+    case Gemini.generate(payload, options) do
+      {:ok, response} ->
+        {:ok, response, attempt}
 
-      text ->
-        String.ends_with?(text, [".", "!", "?"])
+      {:error, reason} ->
+        if transient_error?(reason) and attempt <= retries do
+          log_retry(video_url, attempt, reason)
+          Process.sleep(backoff_ms)
+          do_generate_with_retry(payload, options, video_url, retries, backoff_ms, attempt + 1)
+        else
+          {:error, reason, attempt}
+        end
     end
   end
 
-  defp video_model do
-    case System.get_env("GEMINI_VIDEO_MODEL") do
-      value when is_binary(value) and value != "" -> value
-      _ -> "gemini-3-flash-preview"
-    end
+  defp video_config do
+    config = Application.get_env(:news_agent, :gemini_video, [])
+
+    %{
+      model: Keyword.get(config, :model, "gemini-3-flash-preview"),
+      mime_type: Keyword.get(config, :mime_type, "video/mp4"),
+      max_output_tokens: Keyword.get(config, :max_output_tokens, 2800),
+      target_words: Keyword.get(config, :target_words, "900-1100"),
+      retries: Keyword.get(config, :retries, 2),
+      backoff_ms: Keyword.get(config, :backoff_ms, 500)
+    }
   end
 
-  defp video_mime_type do
-    case System.get_env("GEMINI_VIDEO_MIME_TYPE") do
-      value when is_binary(value) and value != "" -> value
-      _ -> "video/mp4"
-    end
+  defp video_prompt(target_words) do
+    "Summarize the video content. Target #{target_words} words in 4-6 paragraphs. Focus on the main segments and key takeaways. If you cannot access the video content, reply with: Unable to access video content for summarization."
+  end
+
+  defp telemetry_event(stage) do
+    [:news_agent, :youtube, :transcription, :gemini, stage]
+  end
+
+  defp telemetry_metadata(video_url, model, mime_type) do
+    %{url: video_url, provider: :gemini, model: model, mime_type: mime_type}
+  end
+
+  defp base_measurements(attempts) do
+    %{
+      duration_ms: 0,
+      word_count: 0,
+      bytes: 0,
+      attempts: attempts
+    }
+  end
+
+  defp duration_ms(start_time) do
+    System.monotonic_time()
+    |> Kernel.-(start_time)
+    |> System.convert_time_unit(:native, :millisecond)
+  end
+
+  defp word_count(text) do
+    text
+    |> String.split(~r/\s+/, trim: true)
+    |> length()
+  end
+
+  defp transient_error?({:http_error, status, _body}) when is_integer(status) do
+    status == 429 or status >= 500
+  end
+
+  defp transient_error?(%{reason: reason}) do
+    transient_error?(reason)
+  end
+
+  defp transient_error?(%{status: status}) when is_integer(status) do
+    status == 429 or status >= 500
+  end
+
+  defp transient_error?({:failed_connect, _}), do: true
+  defp transient_error?(:timeout), do: true
+  defp transient_error?(:econnrefused), do: true
+  defp transient_error?(:closed), do: true
+  defp transient_error?(:nxdomain), do: true
+  defp transient_error?(_), do: false
+
+  defp log_retry(video_url, attempt, reason) do
+    Logger.info(fn ->
+      "event=transcription_retry provider=gemini url=#{video_url} attempt=#{attempt} reason=#{inspect(reason)}"
+    end)
   end
 end

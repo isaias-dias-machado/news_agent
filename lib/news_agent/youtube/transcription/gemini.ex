@@ -4,10 +4,11 @@ defmodule NewsAgent.YouTube.Transcription.Gemini do
 
   Contract: callers supply a YouTube URL and receive a summary derived from
   multimodal video content. This module performs network calls to Gemini and
-  honors `GEMINI_VIDEO_MODEL` and `GEMINI_VIDEO_MIME_TYPE` at runtime.
+  honors compile-time config under `:news_agent, :gemini_video` while emitting
+  telemetry for start/stop/error events.
 
   Tensions: external model availability and video fetches can fail or return
-  empty content, so callers must handle error tuples.
+  empty content, so callers must handle error tuples that include the failing URL.
   """
 
   alias NewsAgent.Gemini
@@ -15,7 +16,8 @@ defmodule NewsAgent.YouTube.Transcription.Gemini do
   @doc """
   Summarizes a YouTube video using Gemini multimodal inputs.
   """
-  @spec summarize_video(String.t(), Keyword.t()) :: {:ok, String.t()} | {:error, term()}
+  @spec summarize_video(String.t(), Keyword.t()) ::
+          {:ok, String.t()} | {:error, {term(), String.t()}}
   def summarize_video(video_url, opts \\ []) when is_binary(video_url) and is_list(opts) do
     Gemini.summarize_video_url(video_url, opts)
   end
