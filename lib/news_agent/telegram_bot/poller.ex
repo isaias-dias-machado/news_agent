@@ -1,10 +1,9 @@
-defmodule NewsAgent.Chat.TelegramPoller do
+defmodule NewsAgent.TelegramBot.Poller do
   @moduledoc false
 
   use GenServer
 
-  alias NewsAgent.BotServer
-  alias NewsAgent.Chat.TelegramClient
+  alias NewsAgent.TelegramBot
 
   @spec start_link(keyword()) :: GenServer.on_start()
   def start_link(opts \\ []) do
@@ -32,9 +31,9 @@ defmodule NewsAgent.Chat.TelegramPoller do
       |> Keyword.put(:allowed_updates, state.allowed_updates)
 
     {offset, interval} =
-      case TelegramClient.get_updates(params) do
+      case TelegramBot.get_updates(params) do
         {:ok, updates} ->
-          Enum.each(updates, &BotServer.enqueue/1)
+          Enum.each(updates, &TelegramBot.enqueue_update/1)
           {next_offset(updates, state.offset), 0}
 
         {:error, _reason} ->

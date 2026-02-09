@@ -57,6 +57,18 @@ Telegram bot:
 - `TELEGRAM_BOT_TOKEN`
 - `TELEGRAM_BOT_NAME` (used as the default bot handle for bridge tests)
 
+### Telegram bot mocking
+
+Set `NEWS_AGENT_TELEGRAM_MODE` to switch adapters at runtime:
+
+- `NEWS_AGENT_TELEGRAM_MODE=real` (default) uses the real Telegram HTTP API.
+- `NEWS_AGENT_TELEGRAM_MODE=mock` uses the in-memory mock adapter for tests.
+
+The mock adapter stores queued updates and sent messages in memory. Use
+`NewsAgent.TelegramBot.Adapter.Mock.enqueue_update/1`,
+`NewsAgent.TelegramBot.Adapter.Mock.sent_messages/0`, and
+`NewsAgent.TelegramBot.Adapter.Mock.reset/0` in tests to control state.
+
 ### Telegram bridge image
 
 Build the Docker image before starting the env:

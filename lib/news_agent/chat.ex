@@ -13,8 +13,8 @@ defmodule NewsAgent.Chat do
   server queues are polled frequently enough to avoid backlog growth.
   """
 
-  alias NewsAgent.BotServer
-  alias NewsAgent.Chat.{Session, TelegramClient}
+  alias NewsAgent.Chat.Session
+  alias NewsAgent.TelegramBot
 
   @doc """
   Polls the bot server queues and handles updates.
@@ -22,7 +22,7 @@ defmodule NewsAgent.Chat do
   @spec poll(keyword()) :: {:ok, non_neg_integer()} | {:error, term()}
   def poll(opts \\ []) do
     limit = Keyword.get(opts, :limit, 25)
-    updates = BotServer.dequeue(limit)
+    updates = TelegramBot.dequeue(limit)
     results = Enum.map(updates, &handle_update(&1, opts))
     handled = Enum.count(results, &match?({:ok, _}, &1))
     {:ok, handled}
@@ -64,7 +64,7 @@ defmodule NewsAgent.Chat do
         :ok
 
       Keyword.get(opts, :send?, true) ->
-        TelegramClient.send_message(chat_id, reply, opts)
+        TelegramBot.send_message(chat_id, reply, opts)
 
       true ->
         :ok
