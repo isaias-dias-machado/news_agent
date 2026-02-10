@@ -15,7 +15,7 @@ defmodule NewsAgent.YouTube do
   alias NewsAgent.YouTube.RSS
   alias NewsAgent.YouTube.Transcription.Gemini
   alias NewsAgent.YouTube.Transcription.TranscriptAPI
-  alias NewsAgent.Users.UserConfig
+  alias NewsAgent.UserConfigs
   require Logger
 
   @doc """
@@ -25,20 +25,31 @@ defmodule NewsAgent.YouTube do
   Uses UTC day boundaries and returns only links so callers can decide how
   to consume them.
   """
-  @spec yesterday_links_for_user(String.t()) :: [String.t()]
-  def yesterday_links_for_user(user) when is_binary(user) do
+  @spec yesterday_links_for_user(pos_integer() | String.t()) :: [String.t()]
+  def yesterday_links_for_user(user_id) when is_binary(user_id) do
+    case Integer.parse(String.trim(user_id)) do
+      {parsed, _} when parsed > 0 -> yesterday_links_for_user(parsed)
+      _ -> []
+    end
+  end
+
+  def yesterday_links_for_user(user_id) when is_integer(user_id) and user_id > 0 do
     start_time = yesterday_midnight_utc()
     now = DateTime.utc_now()
 
-    channel_ids = UserConfig.youtube_channel_ids(user)
+    channel_ids =
+      case UserConfigs.get(user_id) do
+        {:ok, %{url_sources: sources}} -> sources
+        :error -> []
+      end
 
     Logger.debug(fn ->
-      "YouTube links query user=#{user} channels=#{inspect(channel_ids)} start=#{start_time} now=#{now}"
+      "YouTube links query user=#{user_id} channels=#{inspect(channel_ids)} start=#{start_time} now=#{now}"
     end)
 
     entries = Enum.flat_map(channel_ids, &RSS.fetch_entries/1)
 
-    Logger.debug(fn -> "YouTube links fetched user=#{user} entries=#{length(entries)}" end)
+    Logger.debug(fn -> "YouTube links fetched user=#{user_id} entries=#{length(entries)}" end)
 
     links =
       entries
@@ -46,7 +57,7 @@ defmodule NewsAgent.YouTube do
       |> Enum.map(& &1.link)
 
     Logger.debug(fn ->
-      "YouTube links filtered user=#{user} entries=#{length(entries)} links=#{length(links)}"
+      "YouTube links filtered user=#{user_id} entries=#{length(entries)} links=#{length(links)}"
     end)
 
     links

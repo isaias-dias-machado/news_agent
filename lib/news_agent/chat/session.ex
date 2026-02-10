@@ -4,7 +4,7 @@ defmodule NewsAgent.Chat.Session do
   use GenServer
 
   alias NewsAgent.Chat.LLM
-  alias NewsAgent.Users.UserConfig
+  alias NewsAgent.UserConfigs
 
   @spec start_link({String.t(), keyword()}) :: GenServer.on_start()
   def start_link({chat_id, opts}) when is_binary(chat_id) and is_list(opts) do
@@ -30,7 +30,7 @@ defmodule NewsAgent.Chat.Session do
   def init({chat_id, _opts}) do
     {expires_at, ms_until} = next_expiration(chat_id)
     _ = Process.send_after(self(), :expire, ms_until)
-    status = if UserConfig.chat_linked?(chat_id), do: :linked, else: :unknown
+    status = if chat_linked?(chat_id), do: :linked, else: :unknown
     {:ok, %{chat_id: chat_id, status: status, expires_at: expires_at, history: []}}
   end
 
@@ -151,12 +151,12 @@ defmodule NewsAgent.Chat.Session do
 
   defp link_chat(chat_id, opts, history) do
     case user_id(opts) do
-      user_id when is_binary(user_id) ->
-        case UserConfig.persist_chat_id(user_id, chat_id) do
-          :ok ->
+      user_id when is_integer(user_id) and user_id > 0 ->
+        case UserConfigs.update(user_id, %{chat_id: chat_id}) do
+          {:ok, _record} ->
             {{:ok, {"Linked. You can start chatting.", :linked}}, :linked, history}
 
-          {:error, :missing_user_config} ->
+          {:error, :not_found} ->
             {{:ok, {"Please register in the app before linking this chat.", :pending}}, :pending,
              history}
 
@@ -310,7 +310,7 @@ defmodule NewsAgent.Chat.Session do
   end
 
   defp next_expiration(chat_id) do
-    %{time: time, timezone: timezone} = UserConfig.chat_reset_config(chat_id)
+    %{time: time, timezone: timezone} = default_chat_reset_config(chat_id)
     now = DateTime.now!(timezone)
     reset_at = next_reset_at(now, time, timezone)
     ms_until = max(DateTime.diff(reset_at, now, :millisecond), 0)
@@ -347,9 +347,31 @@ defmodule NewsAgent.Chat.Session do
   end
 
   defp user_id(opts) do
-    case Keyword.get(opts, :user_id) || System.get_env("NEWS_AGENT_DEFAULT_USER") do
-      value when is_binary(value) and value != "" -> value
-      _ -> "isaias"
+    value = Keyword.get(opts, :user_id) || System.get_env("NEWS_AGENT_DEFAULT_USER")
+
+    cond do
+      is_integer(value) and value > 0 ->
+        value
+
+      is_binary(value) ->
+        case Integer.parse(String.trim(value)) do
+          {parsed, _} when parsed > 0 -> parsed
+          _ -> 1
+        end
+
+      true ->
+        1
     end
+  end
+
+  defp chat_linked?(chat_id) do
+    case UserConfigs.find_by_chat_id(chat_id) do
+      {:ok, _record} -> true
+      :error -> false
+    end
+  end
+
+  defp default_chat_reset_config(_chat_id) do
+    %{time: ~T[00:00:00], timezone: "Etc/UTC"}
   end
 end

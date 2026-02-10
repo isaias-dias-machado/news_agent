@@ -12,6 +12,7 @@ defmodule NewsAgent.Application do
   def start(_type, _args) do
     children = [
       {Task.Supervisor, name: NewsAgent.TaskSupervisor},
+      NewsAgent.UserConfigs,
       NewsAgent.TelegramBot,
       {Registry, keys: :unique, name: NewsAgent.Chat.Registry},
       {DynamicSupervisor, strategy: :one_for_one, name: NewsAgent.Chat.Supervisor},
