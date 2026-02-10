@@ -144,6 +144,7 @@ mix run -e 'IO.inspect(NewsAgent.ManualTesting.run("https://youtu.be/VM5MjVALMGc
 ## Documentation & Boundary Contracts
 
 - **Internal Implementation:** No comments allowed in internal logic or private functions.
+- Every module should have a @moduledoc describing what it does and how it fits inside a context
 - **Context Boundaries:** You MUST write `@moduledoc`, `@doc`, and `@spec` for modules serving as Context boundaries (e.g., `MyApp.Accounts`).
 - **Content:** Documentation at these boundaries must describe the **tensions** and the **contract** the caller is subscribing to (e.g., side effects, data consistency guarantees, or expected caller-side validations).
 
