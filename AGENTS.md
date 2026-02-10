@@ -32,11 +32,12 @@ This project uses the dev-env-mcp MCP server. Plugin commands live in `dev_env.j
 4) Start all plugins with `env.start`.
 5) Use `env.status` and `env.logs` to inspect runtime details.
 
+IMPORTANT: writing to the master branch or project root workspace is forbidden.
+
 ### Usage
 
 IMPORTANT: you should not do work, you are the "planer". start a "builder" sub-agent in the workspace directory.
 The main agent owns workspace creation/selection and can create as many workspaces as needed. For each workspace, spawn exactly one sub-agent with its workdir set to that workspace root to promote parallelism and isolation.
-After iterations, always commit fixes so I can diff them from the master branch
 
 ### Required environment
 
@@ -81,13 +82,12 @@ The `telegram_https_client_bridge` plugin runs the container with port 8088 boun
 
 ### Bridge HTTP endpoints
 
-- `POST http://127.0.0.1:8088/send` with JSON `{ "peer": "@bot", "text": "..." }`
-- `GET http://127.0.0.1:8088/updates?peer=@bot`
+- `POST http://127.0.0.1:8088/send` with JSON `{ "peer": "@$TELEGRAM_BOT_NAME", "text": "..." }`
+- `GET http://127.0.0.1:8088/updates?peer=@$TELEGRAM_BOT_NAME`
 
 ## Committing and Merging into master branch
 
-IMPORTANT: the `.commit-message-stash` should be the basis for the body of the
-commit message
+IMPORTANT: the `.commit-message-stash` should be the basis for the body of the commit message
 
 Push feature branch → update main workspace → squash merge from remote branch into main.
 
@@ -109,19 +109,19 @@ export PATH="$HOME/.asdf/shims:$PATH"
 mix run -e 'canonical = "https://example.com/feed"; strategy = %{strategy: %{type: "feed", source_url: canonical}, confidence: 0.9, last_verified_at: DateTime.utc_now()}; IO.inspect(NewsAgent.Sources.persist_strategy(canonical, strategy))'
 ```
 
-2) Verify the DETS file exists:
+1) Verify the DETS file exists:
 
 ```
 ls -l data/kv/source_strategies.dets
 ```
 
-3) Inspect stored entries:
+1) Inspect stored entries:
 
 ```
 mix run -e '{:ok, table} = NewsAgent.KVStore.open(:source_strategies); entries = NewsAgent.KVStore.all(table); IO.inspect(entries); _ = NewsAgent.KVStore.close(table)'
 ```
 
-4) Dump a tree view with `mix kv.dump` (defaults to all tables). Use `--table` to target one table and `--limit` to cap entries.
+1) Dump a tree view with `mix kv.dump` (defaults to all tables). Use `--table` to target one table and `--limit` to cap entries.
 
 ```
 mix kv.dump
