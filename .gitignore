@@ -11,6 +11,7 @@
 /doc/
 
 # Runtime data output
+/data/
 
 # Temporary files, for example, from tests.
 /tmp/
