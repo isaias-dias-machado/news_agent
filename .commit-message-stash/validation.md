@@ -1,1 +1,2 @@
-Not run (doc-only).
+Tests:
+- mix test test/storage_test.exs
