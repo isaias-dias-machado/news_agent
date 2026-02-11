@@ -1,6 +1,7 @@
 ## Plan mode
 
 IMPORTANT: when in plan mode always propose validations that sub-agents can take to continuously iterate on the task at hand.
+IMPORTANT: always try to find work boundaries that can be assigned to parallel sub-agents.
 
 ## Dev environment usage
 
