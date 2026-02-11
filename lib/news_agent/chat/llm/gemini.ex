@@ -39,19 +39,12 @@ defmodule NewsAgent.Chat.LLM.Gemini do
         {:ok, text}
 
       {:error, reason} ->
-        if transient_error?(reason) and attempt <= retries do
-          Logger.debug(fn ->
-            "Chat LLM retry attempt=#{attempt} reason=#{inspect(reason)} backoff_ms=#{backoff_ms}"
-          end)
-
+        if NewsAgent.Gemini.retryable_error?(reason) and attempt <= retries do
+          NewsAgent.Gemini.log_retry(:chat_llm, attempt, reason, %{timeout_ms: timeout_ms})
           Process.sleep(backoff_ms)
           do_generate_with_retry(prompt, options, retries, backoff_ms, timeout_ms, attempt + 1)
         else
-          log_non_retry(reason, attempt)
-
-          Logger.debug(fn ->
-            "Chat LLM failed attempts=#{attempt} reason=#{inspect(reason)}"
-          end)
+          NewsAgent.Gemini.log_failure(:chat_llm, attempt, reason, %{timeout_ms: timeout_ms})
 
           {:error, reason}
         end
@@ -68,9 +61,8 @@ defmodule NewsAgent.Chat.LLM.Gemini do
           value
 
         nil ->
-          log_timeout(timeout_ms)
-
           if dev_env?() do
+            NewsAgent.Gemini.log_failure(:chat_llm, 0, :timeout, %{timeout_ms: timeout_ms})
             raise "LLM timeout. Increase NEWS_AGENT_CHAT_LLM_TIMEOUT_MS"
           end
 
@@ -82,7 +74,6 @@ defmodule NewsAgent.Chat.LLM.Gemini do
       text = String.trim(to_string(text))
 
       if text == "" do
-        log_empty_response(start)
         {:error, :empty_response}
       else
         log_success(start, text)
@@ -90,11 +81,9 @@ defmodule NewsAgent.Chat.LLM.Gemini do
       end
     else
       {:error, reason} ->
-        log_error(start, reason)
         {:error, reason}
 
       _ ->
-        log_empty_response(start)
         {:error, :empty_response}
     end
   end
@@ -122,24 +111,6 @@ defmodule NewsAgent.Chat.LLM.Gemini do
     end
   end
 
-  defp transient_error?({:http_error, status, _body}) when is_integer(status) do
-    status >= 500
-  end
-
-  defp transient_error?(%{reason: reason}) do
-    transient_error?(reason)
-  end
-
-  defp transient_error?(%{status: status}) when is_integer(status) do
-    status >= 500
-  end
-
-  defp transient_error?(:timeout), do: false
-  defp transient_error?(:econnrefused), do: true
-  defp transient_error?(:closed), do: true
-  defp transient_error?(:nxdomain), do: true
-  defp transient_error?(_), do: false
-
   defp dev_env? do
     case Code.ensure_loaded?(Mix) do
       true -> Mix.env() == :dev
@@ -147,34 +118,11 @@ defmodule NewsAgent.Chat.LLM.Gemini do
     end
   end
 
-  defp log_timeout(timeout_ms) do
-    Logger.warning(fn -> "Chat LLM timeout timeout_ms=#{timeout_ms}" end)
-  end
-
   defp log_success(start, text) do
     duration_ms = duration_ms(start)
 
     Logger.debug(fn ->
       "Chat LLM success duration_ms=#{duration_ms} chars=#{String.length(text)}"
-    end)
-  end
-
-  defp log_error(start, reason) do
-    duration_ms = duration_ms(start)
-
-    Logger.warning(fn ->
-      "Chat LLM error duration_ms=#{duration_ms} reason=#{inspect(reason)}"
-    end)
-  end
-
-  defp log_empty_response(start) do
-    duration_ms = duration_ms(start)
-    Logger.warning(fn -> "Chat LLM empty_response duration_ms=#{duration_ms}" end)
-  end
-
-  defp log_non_retry(reason, attempt) do
-    Logger.debug(fn ->
-      "Chat LLM no_retry attempt=#{attempt} reason=#{inspect(reason)}"
     end)
   end
 

@@ -168,11 +168,12 @@ defmodule NewsAgent.Gemini do
         {:ok, response, attempt}
 
       {:error, reason} ->
-        if transient_error?(reason) and attempt <= retries do
-          log_retry(video_url, attempt, reason)
+        if retryable_error?(reason) and attempt <= retries do
+          log_retry(:youtube_transcription, attempt, reason, %{url: video_url})
           Process.sleep(backoff_ms)
           do_generate_with_retry(payload, options, video_url, retries, backoff_ms, attempt + 1)
         else
+          log_failure(:youtube_transcription, attempt, reason, %{url: video_url})
           {:error, reason, attempt}
         end
     end
@@ -224,28 +225,95 @@ defmodule NewsAgent.Gemini do
     |> length()
   end
 
-  defp transient_error?({:http_error, status, _body}) when is_integer(status) do
-    status == 429 or status >= 500
+  @doc """
+  Returns true when a Gemini error should be retried.
+  """
+  @spec retryable_error?(term()) :: boolean()
+  def retryable_error?(reason) do
+    case error_status(reason) do
+      status when status == 429 or status >= 500 ->
+        true
+
+      status when is_integer(status) ->
+        false
+
+      nil ->
+        case unwrap_reason(reason) do
+          :timeout -> true
+          {:failed_connect, _} -> true
+          :econnrefused -> true
+          :closed -> true
+          :nxdomain -> true
+          _ -> false
+        end
+    end
   end
 
-  defp transient_error?(%{reason: reason}) do
-    transient_error?(reason)
-  end
+  @doc """
+  Logs a Gemini retry attempt with standardized severity.
+  """
+  @spec log_retry(atom() | String.t(), non_neg_integer(), term(), map()) :: :ok
+  def log_retry(context, attempt, reason, metadata \\ %{}) do
+    level = if timeout_error?(reason), do: :warning, else: :info
 
-  defp transient_error?(%{status: status}) when is_integer(status) do
-    status == 429 or status >= 500
-  end
-
-  defp transient_error?({:failed_connect, _}), do: true
-  defp transient_error?(:timeout), do: true
-  defp transient_error?(:econnrefused), do: true
-  defp transient_error?(:closed), do: true
-  defp transient_error?(:nxdomain), do: true
-  defp transient_error?(_), do: false
-
-  defp log_retry(video_url, attempt, reason) do
-    Logger.info(fn ->
-      "event=transcription_retry provider=gemini url=#{video_url} attempt=#{attempt} reason=#{inspect(reason)}"
+    Logger.log(level, fn ->
+      "event=gemini_retry context=#{context} attempt=#{attempt} reason=#{format_reason(reason)}#{format_metadata(metadata)}"
     end)
+  end
+
+  @doc """
+  Logs a Gemini failure with standardized severity.
+  """
+  @spec log_failure(atom() | String.t(), non_neg_integer(), term(), map()) :: :ok
+  def log_failure(context, attempts, reason, metadata \\ %{}) do
+    level =
+      cond do
+        paging_error?(reason) -> :error
+        timeout_error?(reason) -> :warning
+        retryable_error?(reason) -> :info
+        true -> :warning
+      end
+
+    Logger.log(level, fn ->
+      "event=gemini_failure context=#{context} attempts=#{attempts} reason=#{format_reason(reason)}#{format_metadata(metadata)}"
+    end)
+  end
+
+  defp paging_error?(reason) do
+    case error_status(reason) do
+      status when status in [400, 401, 403, 422] -> true
+      _ -> false
+    end
+  end
+
+  defp timeout_error?(reason) do
+    case unwrap_reason(reason) do
+      :timeout -> true
+      _ -> false
+    end
+  end
+
+  defp unwrap_reason(%{reason: reason}), do: unwrap_reason(reason)
+  defp unwrap_reason(reason), do: reason
+
+  defp error_status({:http_error, status, _body}) when is_integer(status), do: status
+  defp error_status(%{status: status}) when is_integer(status), do: status
+  defp error_status(%{reason: reason}), do: error_status(reason)
+  defp error_status(_), do: nil
+
+  defp format_reason(reason) do
+    inspect(reason, limit: 10, printable_limit: 500)
+  end
+
+  defp format_metadata(metadata) when map_size(metadata) == 0, do: ""
+
+  defp format_metadata(metadata) do
+    metadata
+    |> Enum.map(fn {key, value} -> " #{key}=#{format_meta_value(value)}" end)
+    |> Enum.join()
+  end
+
+  defp format_meta_value(value) do
+    inspect(value, limit: 5, printable_limit: 200)
   end
 end
