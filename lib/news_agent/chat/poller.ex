@@ -55,15 +55,7 @@ defmodule NewsAgent.Chat.Poller do
     end
   end
 
-  defp next_interval({:error, _reason}, _default), do: error_interval()
   defp next_interval(_result, default), do: default
-
-  defp error_interval do
-    case System.get_env("NEWS_AGENT_CHAT_POLL_ERROR_INTERVAL_MS") do
-      value when is_binary(value) -> parse_interval(value)
-      _ -> 250
-    end
-  end
 
   defp parse_interval(value) do
     case Integer.parse(value) do
