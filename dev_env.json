@@ -1,6 +1,7 @@
 {
   "workspace_copy": [
-    "deps"
+    "deps",
+    "data"
   ],
   "plugins": [
     {
@@ -33,6 +34,12 @@
       "name": "news_agent",
       "type": "process",
       "cmd": "bash -lc 'export PATH=\"$HOME/.asdf/shims:$PATH\"; source \"$HOME/.env\"; mix run --no-halt'"
+    },
+    {
+      "name": "news_agent_prod",
+      "scope": "shared",
+      "type": "process",
+      "cmd": "bash -lc 'export PATH=\"$HOME/.asdf/shims:$PATH\"; priv/prod.sh'"
     }
   ]
 }

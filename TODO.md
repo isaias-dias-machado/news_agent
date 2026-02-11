@@ -1,3 +1,5 @@
 # TODO
 
-- Replace the chat onboarding "OK" handshake with a secure linking flow.
+Cron jobs para scrape das sources que estao no UserConfigs
+Gemini API billing (429)
+Sistema para persistência dos ficheiros de contexto.

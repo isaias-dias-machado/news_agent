@@ -1,3 +1,7 @@
+## Plan mode
+
+IMPORTANT: when in plan mode always propose validations that sub-agents can take to continuously iterate on the task at hand.
+
 ## Dev environment usage
 
 To use dedicated dev envs for fixes and new feature, which you should, learn the
