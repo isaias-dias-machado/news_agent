@@ -4,17 +4,18 @@ defmodule NewsAgent.Sources do
 
   Contract: callers provide canonical source URLs and strategy data. The boundary
   normalizes URLs, validates strategy records against the required schema, and
-  persists or fetches them from the configured KVStore.
+  persists or fetches them from the configured append-only storage.
 
   Tensions: persistence depends on external storage and can fail, and schema
   validation rejects malformed records to keep stored data consistent across
   schema versions.
   """
 
-  alias NewsAgent.KVStore
+  use GenServer
+
+  alias NewsAgent.Storage
 
   @schema_version 1
-  @table :source_strategies
 
   @required_keys [
     :canonical_url,
@@ -39,6 +40,20 @@ defmodule NewsAgent.Sources do
           required(:schema_version) => integer(),
           required(:last_verified_at) => term()
         }
+
+  @type option ::
+          {:dir, String.t()}
+          | {:storage_name, atom()}
+          | {:name, atom() | {:global, term()} | {:via, module(), term()}}
+
+  @doc """
+  Starts the Sources storage process.
+  """
+  @spec start_link([option()]) :: GenServer.on_start()
+  def start_link(opts \\ []) do
+    name = Keyword.get(opts, :name, __MODULE__)
+    GenServer.start_link(__MODULE__, opts, name: name)
+  end
 
   @doc """
   Normalizes a URL for use as a persistence key.
@@ -66,16 +81,27 @@ defmodule NewsAgent.Sources do
   @spec fetch_strategy(String.t()) ::
           {:ok, strategy_record()} | :error | {:error, :invalid_key} | {:error, term()}
   def fetch_strategy(url) when is_binary(url) do
+    fetch_strategy(__MODULE__, url)
+  end
+
+  def fetch_strategy(_url), do: {:error, :invalid_key}
+
+  @doc """
+  Fetches a persisted strategy record from a specific server.
+  """
+  @spec fetch_strategy(GenServer.server(), String.t()) ::
+          {:ok, strategy_record()} | :error | {:error, :invalid_key} | {:error, term()}
+  def fetch_strategy(server, url) when is_binary(url) do
     case normalize_url(url) do
       {:ok, normalized_url} ->
-        with_table(fn table -> KVStore.get(table, normalized_url) end)
+        GenServer.call(server, {:fetch, normalized_url})
 
       {:error, :invalid_url} ->
         {:error, :invalid_key}
     end
   end
 
-  def fetch_strategy(_url), do: {:error, :invalid_key}
+  def fetch_strategy(_server, _url), do: {:error, :invalid_key}
 
   @doc """
   Persists a strategy record for a canonical URL.
@@ -84,9 +110,21 @@ defmodule NewsAgent.Sources do
           :ok | {:error, :invalid_key} | {:error, :invalid_strategy} | {:error, term()}
   def persist_strategy(canonical_url, strategy)
       when is_binary(canonical_url) and is_map(strategy) do
+    persist_strategy(__MODULE__, canonical_url, strategy)
+  end
+
+  def persist_strategy(_canonical_url, _strategy), do: {:error, :invalid_strategy}
+
+  @doc """
+  Persists a strategy record for a canonical URL on a specific server.
+  """
+  @spec persist_strategy(GenServer.server(), String.t(), map()) ::
+          :ok | {:error, :invalid_key} | {:error, :invalid_strategy} | {:error, term()}
+  def persist_strategy(server, canonical_url, strategy)
+      when is_binary(canonical_url) and is_map(strategy) do
     with {:ok, normalized_url} <- normalize_url(canonical_url),
          {:ok, record} <- build_record(canonical_url, normalized_url, strategy),
-         :ok <- with_table(fn table -> KVStore.put(table, normalized_url, record) end) do
+         :ok <- GenServer.call(server, {:persist, normalized_url, record}) do
       :ok
     else
       {:error, :invalid_url} -> {:error, :invalid_key}
@@ -95,7 +133,7 @@ defmodule NewsAgent.Sources do
     end
   end
 
-  def persist_strategy(_canonical_url, _strategy), do: {:error, :invalid_strategy}
+  def persist_strategy(_server, _canonical_url, _strategy), do: {:error, :invalid_strategy}
 
   @doc """
   Fetches and validates a persisted strategy record for a canonical URL.
@@ -107,7 +145,20 @@ defmodule NewsAgent.Sources do
           | {:error, :invalid_strategy}
           | {:error, term()}
   def strategy_for(url) do
-    case fetch_strategy(url) do
+    strategy_for(__MODULE__, url)
+  end
+
+  @doc """
+  Fetches and validates a persisted strategy record from a specific server.
+  """
+  @spec strategy_for(GenServer.server(), String.t()) ::
+          {:ok, strategy_record()}
+          | :error
+          | {:error, :invalid_key}
+          | {:error, :invalid_strategy}
+          | {:error, term()}
+  def strategy_for(server, url) do
+    case fetch_strategy(server, url) do
       {:ok, strategy} ->
         case validate_strategy(strategy) do
           :ok -> {:ok, strategy}
@@ -117,6 +168,25 @@ defmodule NewsAgent.Sources do
       other ->
         other
     end
+  end
+
+  @impl true
+  def init(opts) do
+    dir = Keyword.get(opts, :dir, "data/source_strategies")
+    storage_name = Keyword.get(opts, :storage_name, storage_name())
+    {:ok, storage} = Storage.start_link(dir: dir, name: storage_name)
+    {:ok, %{storage: storage}}
+  end
+
+  @impl true
+  def handle_call({:fetch, key}, _from, state) do
+    reply = Storage.get(state.storage, key)
+    {:reply, reply, state}
+  end
+
+  def handle_call({:persist, key, record}, _from, state) do
+    :ok = Storage.put(state.storage, key, record)
+    {:reply, :ok, state}
   end
 
   defp build_record(canonical_url, normalized_url, strategy) do
@@ -155,17 +225,7 @@ defmodule NewsAgent.Sources do
 
   defp valid_strategy?(_record), do: false
 
-  defp with_table(fun) when is_function(fun, 1) do
-    case KVStore.open(@table) do
-      {:ok, table} ->
-        try do
-          fun.(table)
-        after
-          _ = KVStore.close(table)
-        end
-
-      {:error, reason} ->
-        {:error, reason}
-    end
+  defp storage_name do
+    Module.concat(__MODULE__, Storage)
   end
 end

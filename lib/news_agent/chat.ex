@@ -43,6 +43,15 @@ defmodule NewsAgent.Chat do
     end
   end
 
+  @doc """
+  Resets the in-memory chat context for the given chat id.
+  """
+  @spec reset_context(String.t() | integer(), keyword()) :: :ok | {:error, term()}
+  def reset_context(chat_id, opts \\ []) do
+    chat_id = normalize_chat_id(chat_id)
+    Session.reset_context(chat_id, opts)
+  end
+
   defp handle_message(message, opts) do
     chat_id = normalize_chat_id(Map.get(message, "chat_id"))
     update = Map.get(message, "update", %{})

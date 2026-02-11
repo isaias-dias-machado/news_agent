@@ -12,6 +12,12 @@ defmodule NewsAgent.Application do
   def start(_type, _args) do
     children = [
       {Task.Supervisor, name: NewsAgent.TaskSupervisor},
+      {Task.Supervisor, name: NewsAgent.Scheduler.TaskSupervisor},
+      NewsAgent.Scheduler.Queue,
+      NewsAgent.Scheduler.Tick,
+      NewsAgent.Scheduler.Executor,
+      NewsAgent.Scheduler.Obs.SLOWatcher,
+      NewsAgent.Sources,
       NewsAgent.UserConfigs,
       NewsAgent.TelegramBot,
       {Registry, keys: :unique, name: NewsAgent.Chat.Registry},

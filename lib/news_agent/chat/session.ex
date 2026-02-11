@@ -26,6 +26,23 @@ defmodule NewsAgent.Chat.Session do
     end
   end
 
+  @doc """
+  Resets the in-memory conversation history for a chat session.
+  """
+  @spec reset_context(String.t(), keyword()) :: :ok | {:error, term()}
+  def reset_context(chat_id, opts) when is_binary(chat_id) and is_list(opts) do
+    with {:ok, _pid} <- ensure_session(chat_id, opts) do
+      timeout = session_timeout(opts)
+
+      try do
+        GenServer.call(via_name(chat_id), :reset_context, timeout)
+      catch
+        :exit, {:timeout, _} -> {:error, :timeout}
+        :exit, reason -> {:error, reason}
+      end
+    end
+  end
+
   @impl true
   def init({chat_id, _opts}) do
     {expires_at, ms_until} = next_expiration(chat_id)
@@ -74,6 +91,10 @@ defmodule NewsAgent.Chat.Session do
         state = %{state | status: next_status, history: history}
         {:reply, reply, state}
     end
+  end
+
+  def handle_call(:reset_context, _from, state) do
+    {:reply, :ok, %{state | history: []}}
   end
 
   @impl true

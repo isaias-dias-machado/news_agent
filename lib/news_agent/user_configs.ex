@@ -16,11 +16,17 @@ defmodule NewsAgent.UserConfigs do
 
   alias NewsAgent.Storage
 
+  @type due_time :: {hour :: 0..23, minute :: 0..59} | nil
+
   @type record :: %{
           id: pos_integer(),
           chat_id: String.t() | nil,
           url_sources: [String.t()],
-          schema_version: 1
+          due_time: due_time(),
+          last_date: String.t() | nil,
+          status: :success | :cutoff_reached | nil,
+          last_run_at: String.t() | nil,
+          schema_version: 2
         }
 
   @type option ::
@@ -30,7 +36,7 @@ defmodule NewsAgent.UserConfigs do
 
   @next_id_key "__next_id__"
   @ids_key "__ids__"
-  @schema_version 1
+  @schema_version 2
 
   @doc """
   Starts the UserConfigs process.
@@ -90,6 +96,55 @@ defmodule NewsAgent.UserConfigs do
   end
 
   @doc """
+  Updates scheduler fields for a user config.
+  """
+  @spec update_scheduler(pos_integer(), map()) :: {:ok, record()} | {:error, term()}
+  def update_scheduler(id, attrs) when is_integer(id) and id > 0 and is_map(attrs) do
+    GenServer.call(__MODULE__, {:update_scheduler, id, attrs})
+  end
+
+  @doc """
+  Sets the scheduler delivery due time for a user config.
+  """
+  @spec set_due_time(pos_integer(), due_time()) :: {:ok, record()} | {:error, term()}
+  def set_due_time(id, due_time) when is_integer(id) and id > 0 do
+    update_scheduler(id, %{due_time: due_time})
+  end
+
+  @doc """
+  Sets the scheduler last finalized date for a user config.
+  """
+  @spec set_last_date(pos_integer(), String.t() | nil) :: {:ok, record()} | {:error, term()}
+  def set_last_date(id, last_date) when is_integer(id) and id > 0 do
+    update_scheduler(id, %{last_date: last_date})
+  end
+
+  @doc """
+  Sets the scheduler status for a user config.
+  """
+  @spec set_status(pos_integer(), :success | :cutoff_reached | nil) :: {:ok, record()} | {:error, term()}
+  def set_status(id, status) when is_integer(id) and id > 0 do
+    update_scheduler(id, %{status: status})
+  end
+
+  @doc """
+  Sets the scheduler last run timestamp for a user config.
+  """
+  @spec set_last_run_at(pos_integer(), DateTime.t() | String.t() | nil) ::
+          {:ok, record()} | {:error, term()}
+  def set_last_run_at(id, last_run_at) when is_integer(id) and id > 0 do
+    update_scheduler(id, %{last_run_at: last_run_at})
+  end
+
+  @doc """
+  Lists all user configs for scheduler planning.
+  """
+  @spec list_for_scheduler() :: [record()]
+  def list_for_scheduler do
+    GenServer.call(__MODULE__, :list_for_scheduler)
+  end
+
+  @doc """
   Deletes a user config by id.
   """
   @spec delete(pos_integer()) :: :ok | {:error, term()}
@@ -142,24 +197,11 @@ defmodule NewsAgent.UserConfigs do
   end
 
   def handle_call(:list, _from, state) do
-    records =
-      state.storage
-      |> ids()
-      |> Enum.sort()
-      |> Enum.flat_map(fn id ->
-        case Storage.get(state.storage, record_key(id)) do
-          {:ok, data} ->
-            case decode_record(data) do
-              %{} = record -> [record]
-              :error -> []
-            end
+    {:reply, list_records(state.storage), state}
+  end
 
-          :error ->
-            []
-        end
-      end)
-
-    {:reply, records, state}
+  def handle_call(:list_for_scheduler, _from, state) do
+    {:reply, list_records(state.storage), state}
   end
 
   def handle_call({:find_by_chat_id, chat_id}, _from, state) do
@@ -191,7 +233,34 @@ defmodule NewsAgent.UserConfigs do
       {:ok, data} ->
         with %{} = record <- decode_record(data),
              {:ok, chat_id, url_sources} <- merge_attrs(record, attrs) do
-          updated = build_record(id, chat_id, url_sources)
+          updated =
+            build_record(id, chat_id, url_sources, %{
+              due_time: record.due_time,
+              last_date: record.last_date,
+              status: record.status,
+              last_run_at: record.last_run_at
+            })
+
+          :ok = Storage.put(state.storage, record_key(id), encode_record(updated))
+          {:reply, {:ok, updated}, state}
+        else
+          :error -> {:reply, {:error, :invalid_record}, state}
+          {:error, reason} -> {:reply, {:error, reason}, state}
+        end
+
+      :error ->
+        {:reply, {:error, :not_found}, state}
+    end
+  end
+
+  def handle_call({:update_scheduler, id, attrs}, _from, state) do
+    case Storage.get(state.storage, record_key(id)) do
+      {:ok, data} ->
+        with %{} = record <- decode_record(data),
+             {:ok, scheduler_fields} <- merge_scheduler_attrs(record, attrs) do
+          updated =
+            build_record(id, record.chat_id, record.url_sources, scheduler_fields)
+
           :ok = Storage.put(state.storage, record_key(id), encode_record(updated))
           {:reply, {:ok, updated}, state}
         else
@@ -321,11 +390,15 @@ defmodule NewsAgent.UserConfigs do
 
   defp validate_url_sources(_value), do: {:error, :invalid_url_sources}
 
-  defp build_record(id, chat_id, url_sources) do
+  defp build_record(id, chat_id, url_sources, scheduler_fields \\ %{}) do
     %{
       id: id,
       chat_id: chat_id,
       url_sources: url_sources,
+      due_time: Map.get(scheduler_fields, :due_time),
+      last_date: Map.get(scheduler_fields, :last_date),
+      status: Map.get(scheduler_fields, :status),
+      last_run_at: Map.get(scheduler_fields, :last_run_at),
       schema_version: @schema_version
     }
   end
@@ -335,6 +408,10 @@ defmodule NewsAgent.UserConfigs do
       "id" => record.id,
       "chat_id" => record.chat_id,
       "url_sources" => record.url_sources,
+      "due_time" => encode_due_time(record.due_time),
+      "last_date" => record.last_date,
+      "status" => encode_status(record.status),
+      "last_run_at" => encode_last_run_at(record.last_run_at),
       "schema_version" => record.schema_version
     }
   end
@@ -343,16 +420,28 @@ defmodule NewsAgent.UserConfigs do
     id = Map.get(data, "id") || Map.get(data, :id)
     chat_id = Map.get(data, "chat_id") || Map.get(data, :chat_id)
     url_sources = Map.get(data, "url_sources") || Map.get(data, :url_sources)
+    due_time = Map.get(data, "due_time") || Map.get(data, :due_time)
+    last_date = Map.get(data, "last_date") || Map.get(data, :last_date)
+    status = Map.get(data, "status") || Map.get(data, :status)
+    last_run_at = Map.get(data, "last_run_at") || Map.get(data, :last_run_at)
     schema_version = Map.get(data, "schema_version") || Map.get(data, :schema_version)
 
     with {:ok, id} <- validate_id(id),
          {:ok, chat_id} <- validate_chat_id(chat_id),
          {:ok, url_sources} <- validate_url_sources(url_sources),
-         true <- schema_version == @schema_version do
+         {:ok, due_time} <- validate_due_time(due_time),
+         {:ok, last_date} <- validate_last_date(last_date),
+         {:ok, status} <- validate_status(status),
+         {:ok, last_run_at} <- validate_last_run_at(last_run_at),
+         true <- schema_version in [1, @schema_version] do
       %{
         id: id,
         chat_id: chat_id,
         url_sources: url_sources,
+        due_time: due_time,
+        last_date: last_date,
+        status: status,
+        last_run_at: last_run_at,
         schema_version: @schema_version
       }
     else
@@ -367,4 +456,138 @@ defmodule NewsAgent.UserConfigs do
 
   defp record_key(id), do: Integer.to_string(id)
   defp storage_name, do: Module.concat(__MODULE__, Storage)
+
+  defp list_records(storage) do
+    storage
+    |> ids()
+    |> Enum.sort()
+    |> Enum.flat_map(fn id ->
+      case Storage.get(storage, record_key(id)) do
+        {:ok, data} ->
+          case decode_record(data) do
+            %{} = record -> [record]
+            :error -> []
+          end
+
+        :error ->
+          []
+      end
+    end)
+  end
+
+  defp merge_scheduler_attrs(record, attrs) do
+    due_time =
+      case Map.has_key?(attrs, :due_time) or Map.has_key?(attrs, "due_time") do
+        true -> fetch_attr(attrs, :due_time)
+        false -> record.due_time
+      end
+
+    last_date =
+      case Map.has_key?(attrs, :last_date) or Map.has_key?(attrs, "last_date") do
+        true -> fetch_attr(attrs, :last_date)
+        false -> record.last_date
+      end
+
+    status =
+      case Map.has_key?(attrs, :status) or Map.has_key?(attrs, "status") do
+        true -> fetch_attr(attrs, :status)
+        false -> record.status
+      end
+
+    last_run_at =
+      case Map.has_key?(attrs, :last_run_at) or Map.has_key?(attrs, "last_run_at") do
+        true -> fetch_attr(attrs, :last_run_at)
+        false -> record.last_run_at
+      end
+
+    with {:ok, due_time} <- validate_due_time(due_time),
+         {:ok, last_date} <- validate_last_date(last_date),
+         {:ok, status} <- validate_status(status),
+         {:ok, last_run_at} <- validate_last_run_at(last_run_at) do
+      {:ok,
+       %{
+         due_time: due_time,
+         last_date: last_date,
+         status: status,
+         last_run_at: last_run_at
+       }}
+    end
+  end
+
+  defp validate_due_time(nil), do: {:ok, nil}
+
+  defp validate_due_time({hour, minute})
+       when is_integer(hour) and is_integer(minute) and hour in 0..23 and minute in 0..59 do
+    {:ok, {hour, minute}}
+  end
+
+  defp validate_due_time(%{"hour" => hour, "minute" => minute}) do
+    validate_due_time({hour, minute})
+  end
+
+  defp validate_due_time(%{hour: hour, minute: minute}) do
+    validate_due_time({hour, minute})
+  end
+
+  defp validate_due_time(_value), do: {:error, :invalid_due_time}
+
+  defp validate_last_date(nil), do: {:ok, nil}
+
+  defp validate_last_date(value) when is_binary(value) do
+    case Date.from_iso8601(value) do
+      {:ok, date} ->
+        if Date.to_iso8601(date) == value do
+          {:ok, value}
+        else
+          {:error, :invalid_last_date}
+        end
+
+      _ ->
+        {:error, :invalid_last_date}
+    end
+  end
+
+  defp validate_last_date(_value), do: {:error, :invalid_last_date}
+
+  defp validate_status(nil), do: {:ok, nil}
+  defp validate_status(:success), do: {:ok, :success}
+  defp validate_status(:cutoff_reached), do: {:ok, :cutoff_reached}
+
+  defp validate_status("success"), do: {:ok, :success}
+  defp validate_status("cutoff_reached"), do: {:ok, :cutoff_reached}
+
+  defp validate_status(_value), do: {:error, :invalid_status}
+
+  defp validate_last_run_at(nil), do: {:ok, nil}
+
+  defp validate_last_run_at(value) when is_binary(value) do
+    case DateTime.from_iso8601(value) do
+      {:ok, dt, 0} ->
+        if DateTime.to_iso8601(dt) == value do
+          {:ok, value}
+        else
+          {:error, :invalid_last_run_at}
+        end
+
+      _ ->
+        {:error, :invalid_last_run_at}
+    end
+  end
+
+  defp validate_last_run_at(%DateTime{} = value) do
+    {:ok, DateTime.to_iso8601(value)}
+  end
+
+  defp validate_last_run_at(_value), do: {:error, :invalid_last_run_at}
+
+  defp encode_due_time(nil), do: nil
+  defp encode_due_time({hour, minute}), do: %{"hour" => hour, "minute" => minute}
+
+  defp encode_status(nil), do: nil
+  defp encode_status(status) when is_atom(status), do: Atom.to_string(status)
+  defp encode_status(status) when is_binary(status), do: status
+
+  defp encode_last_run_at(nil), do: nil
+  defp encode_last_run_at(%DateTime{} = value), do: DateTime.to_iso8601(value)
+  defp encode_last_run_at(value) when is_binary(value), do: value
 end

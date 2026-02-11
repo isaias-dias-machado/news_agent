@@ -137,6 +137,7 @@ defmodule StorageTest do
   defp tmp_dir do
     base = System.tmp_dir!()
     dir = Path.join(base, "storage_#{System.unique_integer([:positive])}")
+    _ = File.rm_rf(dir)
     :ok = File.mkdir_p(dir)
     dir
   end
