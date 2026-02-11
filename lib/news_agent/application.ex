@@ -17,7 +17,6 @@ defmodule NewsAgent.Application do
       NewsAgent.Scheduler.Tick,
       NewsAgent.Scheduler.Executor,
       NewsAgent.Scheduler.Obs.SLOWatcher,
-      NewsAgent.Sources,
       NewsAgent.UserConfigs,
       NewsAgent.TelegramBot,
       {Registry, keys: :unique, name: NewsAgent.Chat.Registry},

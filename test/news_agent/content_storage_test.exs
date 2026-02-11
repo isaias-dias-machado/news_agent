@@ -2,7 +2,7 @@ defmodule NewsAgent.ContentStorageTest do
   use ExUnit.Case, async: false
 
   alias NewsAgent.ContentStorage
-  alias NewsAgent.Sources
+  alias NewsAgent.UrlNormalizer
 
   setup do
     user_id = "content-storage-#{System.unique_integer([:positive])}"
@@ -20,7 +20,7 @@ defmodule NewsAgent.ContentStorageTest do
     assert :ok = ContentStorage.store(user_id, slug, content_url, "Author", "Body")
     assert {:ok, record} = ContentStorage.read(user_id, slug, content_url)
     assert record.content_url == content_url
-    assert {:ok, normalized_url} = Sources.normalize_url(content_url)
+    assert {:ok, normalized_url} = UrlNormalizer.normalize(content_url, allow_private: true)
     assert record.normalized_url == normalized_url
     assert record.author == "Author"
     assert record.content == "Body"

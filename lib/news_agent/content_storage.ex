@@ -12,7 +12,7 @@ defmodule NewsAgent.ContentStorage do
   that callers must handle explicitly.
   """
 
-  alias NewsAgent.Sources
+  alias NewsAgent.UrlNormalizer
 
   @type record :: %{
           content_url: String.t(),
@@ -30,7 +30,7 @@ defmodule NewsAgent.ContentStorage do
   def store(user_id, slug, content_url, author, content) do
     with {:ok, user_id} <- normalize_user_id(user_id),
          {:ok, slug} <- normalize_slug(slug),
-         {:ok, normalized_url} <- Sources.normalize_url(content_url),
+         {:ok, normalized_url} <- UrlNormalizer.normalize(content_url, allow_private: true),
          {:ok, record} <- build_record(content_url, normalized_url, author, content),
          :ok <- ensure_dir(user_id) do
       json_path = path_for(user_id, slug, content_url)
@@ -50,7 +50,7 @@ defmodule NewsAgent.ContentStorage do
   def read(user_id, slug, content_url) do
     with {:ok, user_id} <- normalize_user_id(user_id),
          {:ok, slug} <- normalize_slug(slug),
-         {:ok, normalized_url} <- Sources.normalize_url(content_url) do
+         {:ok, normalized_url} <- UrlNormalizer.normalize(content_url, allow_private: true) do
       json_path = path_for(user_id, slug, content_url)
 
       case File.read(json_path) do
