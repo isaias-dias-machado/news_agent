@@ -5,17 +5,20 @@ defmodule NewsAgent.TelegramBot.Adapter.Mock do
 
   use GenServer
 
-  @type update :: map()
+  alias NewsAgent.TelegramBot.Update
+
+  @type update :: Update.t()
 
   @spec start_link(keyword()) :: GenServer.on_start()
   def start_link(opts \\ []) do
     GenServer.start_link(__MODULE__, :ok, name: server_name(opts))
   end
 
-  @spec enqueue_update(update()) :: :ok
+  @spec enqueue_update(update() | map()) :: :ok
   def enqueue_update(update) when is_map(update) do
     :ok = ensure_started()
-    GenServer.call(server_name([]), {:enqueue, update})
+    normalized = normalize_update(update)
+    GenServer.call(server_name([]), {:enqueue, normalized})
   end
 
   @impl true
@@ -89,10 +92,13 @@ defmodule NewsAgent.TelegramBot.Adapter.Mock do
   defp apply_offset(updates, _offset), do: updates
 
   defp update_id(update) do
-    Map.get(update, "update_id") || Map.get(update, :update_id) || 0
+    update.update_id
   end
 
   defp server_name(opts) do
     Keyword.get(opts, :name, __MODULE__)
   end
+
+  defp normalize_update(%Update{} = update), do: update
+  defp normalize_update(update) when is_map(update), do: Update.from_map(update)
 end

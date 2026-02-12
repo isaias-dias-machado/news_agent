@@ -4,6 +4,7 @@ defmodule NewsAgent.Chat.Session do
   use GenServer
 
   alias NewsAgent.Chat.LLM
+  alias NewsAgent.TelegramBot.Update
   alias NewsAgent.UserConfigs
 
   @spec start_link({String.t(), keyword()}) :: GenServer.on_start()
@@ -11,9 +12,9 @@ defmodule NewsAgent.Chat.Session do
     GenServer.start_link(__MODULE__, {chat_id, opts}, name: via_name(chat_id))
   end
 
-  @spec handle_update(String.t(), map(), keyword()) ::
+  @spec handle_update(String.t(), Update.t(), keyword()) ::
           {:ok, {String.t(), :pending | :linked}} | {:error, term()}
-  def handle_update(chat_id, update, opts) when is_binary(chat_id) and is_map(update) do
+  def handle_update(chat_id, %Update{} = update, opts) when is_binary(chat_id) do
     with {:ok, _pid} <- ensure_session(chat_id, opts) do
       timeout = session_timeout(opts)
 
@@ -233,16 +234,12 @@ defmodule NewsAgent.Chat.Session do
     "Reply OK to link this chat. Commands: /start, /help"
   end
 
-  defp extract_text(update) do
-    get_in(update, ["message", "text"]) ||
-      get_in(update, ["edited_message", "text"]) ||
-      get_in(update, ["channel_post", "text"])
+  defp extract_text(%Update{message: message}) do
+    get_in(message || %{}, ["text"])
   end
 
-  defp from_bot?(update) do
-    get_in(update, ["message", "from", "is_bot"]) == true or
-      get_in(update, ["edited_message", "from", "is_bot"]) == true or
-      get_in(update, ["channel_post", "from", "is_bot"]) == true
+  defp from_bot?(%Update{message: message}) do
+    get_in(message || %{}, ["from", "is_bot"]) == true
   end
 
   defp classify_action(status, update) do

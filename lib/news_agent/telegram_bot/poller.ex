@@ -4,6 +4,7 @@ defmodule NewsAgent.TelegramBot.Poller do
   use GenServer
 
   alias NewsAgent.TelegramBot
+  alias NewsAgent.TelegramBot.Update
 
   @spec start_link(keyword()) :: GenServer.on_start()
   def start_link(opts \\ []) do
@@ -48,7 +49,7 @@ defmodule NewsAgent.TelegramBot.Poller do
 
   defp next_offset(updates, offset) do
     updates
-    |> Enum.map(& &1["update_id"])
+    |> Enum.map(fn %Update{update_id: update_id} -> update_id end)
     |> Enum.max(fn -> offset end)
     |> then(&(&1 + 1))
   end

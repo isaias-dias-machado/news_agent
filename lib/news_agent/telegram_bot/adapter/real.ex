@@ -3,6 +3,8 @@ defmodule NewsAgent.TelegramBot.Adapter.Real do
 
   @behaviour NewsAgent.TelegramBot.Adapter
 
+  alias NewsAgent.TelegramBot.Update
+
   require Logger
 
   @impl true
@@ -43,7 +45,7 @@ defmodule NewsAgent.TelegramBot.Adapter.Real do
 
       case Req.get(client, url: "/getUpdates", params: params, receive_timeout: receive_timeout) do
         {:ok, %Req.Response{status: 200, body: %{"ok" => true, "result" => result}}} ->
-          {:ok, result}
+          {:ok, Enum.map(result, &Update.from_map/1)}
 
         {:ok, %Req.Response{body: %{"ok" => false} = body}} ->
           {:error, {:telegram_error, body}}

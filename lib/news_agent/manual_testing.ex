@@ -8,6 +8,7 @@ defmodule NewsAgent.ManualTesting do
   """
 
   alias NewsAgent.{Chat, YouTube}
+  alias NewsAgent.TelegramBot.Update
 
   @doc """
   Fetches a transcript and returns the result tuple.
@@ -46,6 +47,6 @@ defmodule NewsAgent.ManualTesting do
   end
 
   defp build_update(chat_id, text) do
-    %{"message" => %{"chat" => %{"id" => chat_id}, "text" => text}}
+    Update.from_map(%{"message" => %{"chat" => %{"id" => chat_id}, "text" => text}})
   end
 end

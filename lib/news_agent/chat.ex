@@ -15,6 +15,7 @@ defmodule NewsAgent.Chat do
 
   alias NewsAgent.Chat.Session
   alias NewsAgent.TelegramBot
+  alias NewsAgent.TelegramBot.Update
 
   @doc """
   Polls the bot server queues and handles updates.
@@ -31,8 +32,8 @@ defmodule NewsAgent.Chat do
   @doc """
   Handles a Telegram update map and replies to the chat.
   """
-  @spec handle_update(map(), keyword()) :: {:ok, map()} | {:error, term()}
-  def handle_update(update, opts \\ []) when is_map(update) do
+  @spec handle_update(Update.t(), keyword()) :: {:ok, map()} | {:error, term()}
+  def handle_update(%Update{} = update, opts \\ []) do
     case extract_chat_id(update) do
       nil ->
         {:error, :missing_chat_id}
@@ -80,10 +81,8 @@ defmodule NewsAgent.Chat do
     end
   end
 
-  defp extract_chat_id(update) do
-    get_in(update, ["message", "chat", "id"]) ||
-      get_in(update, ["edited_message", "chat", "id"]) ||
-      get_in(update, ["channel_post", "chat", "id"])
+  defp extract_chat_id(%Update{message: message}) do
+    get_in(message || %{}, ["chat", "id"])
   end
 
   defp normalize_chat_id(chat_id) when is_integer(chat_id), do: Integer.to_string(chat_id)

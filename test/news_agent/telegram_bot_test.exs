@@ -3,6 +3,7 @@ defmodule NewsAgent.TelegramBotTest do
 
   alias NewsAgent.TelegramBot
   alias NewsAgent.TelegramBot.Adapter.Mock
+  alias NewsAgent.TelegramBot.Update
 
   setup do
     server_name = :"bot_server_test_#{System.unique_integer([:positive])}"
@@ -19,8 +20,8 @@ defmodule NewsAgent.TelegramBotTest do
 
     [first, second] = TelegramBot.dequeue(2, server: server)
 
-    assert first["update_id"] == 1
-    assert second["update_id"] == 2
+    assert first.update_id == 1
+    assert second.update_id == 2
   end
 
   test "dequeues with default limit", %{server: server} do
@@ -32,14 +33,15 @@ defmodule NewsAgent.TelegramBotTest do
 
     messages = TelegramBot.dequeue(nil, server: server)
 
-    assert Enum.map(messages, & &1["update_id"]) == [3, 4]
+    assert Enum.map(messages, & &1.update_id) == [3, 4]
   end
 
   test "mock adapter enqueues and returns updates" do
     :ok = Mock.reset()
 
-    update = %{"update_id" => 10, "message" => %{"text" => "hello"}}
-    :ok = Mock.enqueue_update(update)
+    update_map = %{"update_id" => 10, "message" => %{"text" => "hello"}}
+    update = Update.from_map(update_map)
+    :ok = Mock.enqueue_update(update_map)
 
     assert {:ok, [^update]} = Mock.get_updates([])
     assert {:ok, []} = Mock.get_updates([])

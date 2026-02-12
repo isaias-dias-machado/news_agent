@@ -2,9 +2,9 @@ defmodule NewsAgent.TelegramBot do
   @moduledoc """
   Boundary for Telegram delivery and polling.
 
-  Contract: callers enqueue and dequeue raw Telegram update maps for local
-  processing, and use `get_updates/1` and `send_message/3` to interact with the
-  Telegram API via a runtime-selected adapter.
+  Contract: callers enqueue and dequeue Telegram updates for local processing,
+  and use `get_updates/1` and `send_message/3` to interact with the Telegram API
+  via a runtime-selected adapter.
 
   Tensions: the in-memory queue is process-local and volatile, so restarts drop
   pending updates. Adapter calls depend on external services when in real mode,
@@ -14,7 +14,9 @@ defmodule NewsAgent.TelegramBot do
 
   use GenServer
 
-  @type update :: map()
+  alias NewsAgent.TelegramBot.Update
+
+  @type update :: Update.t()
 
   @default_dequeue_limit 25
 
@@ -26,9 +28,10 @@ defmodule NewsAgent.TelegramBot do
   @doc """
   Enqueues a Telegram update for later processing.
   """
-  @spec enqueue_update(update(), keyword()) :: :ok
+  @spec enqueue_update(update() | map(), keyword()) :: :ok
   def enqueue_update(update, opts \\ []) do
-    GenServer.call(server_name(opts), {:enqueue, update})
+    normalized = normalize_update(update)
+    GenServer.call(server_name(opts), {:enqueue, normalized})
   end
 
   @doc """
@@ -51,7 +54,7 @@ defmodule NewsAgent.TelegramBot do
   @doc """
   Fetches updates from Telegram using the configured adapter.
   """
-  @spec get_updates(keyword()) :: {:ok, [map()]} | {:error, term()}
+  @spec get_updates(keyword()) :: {:ok, [update()]} | {:error, term()}
   def get_updates(params \\ []) when is_list(params) do
     adapter().get_updates(params)
   end
@@ -106,4 +109,7 @@ defmodule NewsAgent.TelegramBot do
       _ -> NewsAgent.TelegramBot.Adapter.Real
     end
   end
+
+  defp normalize_update(%Update{} = update), do: update
+  defp normalize_update(update) when is_map(update), do: Update.from_map(update)
 end
