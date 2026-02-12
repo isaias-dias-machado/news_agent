@@ -1,3 +1,97 @@
+# Ownership & Correct Pragmatism
+
+We build minimal systems that we completely understand.
+
+The goal is not sophistication.
+The goal is control, correctness, and the ability to evolve.
+
+---
+
+## Ownership First
+
+If a problem can be solved with a small, explicit component,
+we build it ourselves.
+
+We prefer:
+
+- simple files
+- straightforward formats
+- direct flows
+
+over introducing heavy external infrastructure.
+
+Example:
+If we need storage, we implement a minimal store instead of using Postgres or SQLite.
+
+Why?
+Because understanding behavior is more valuable than outsourcing it.
+
+---
+
+## Build the Smallest Correct Thing
+
+The implementation must:
+
+- work through the public API
+- preserve invariants
+- fail loudly on uncertainty
+- make state visible through logs or inspection
+- be easy to delete or replace
+
+No hidden magic.
+
+---
+
+## Replaceability Over Power
+
+We are not building permanent infrastructure.
+
+We are building something good enough **until reality teaches us better**.
+
+Design so future replacement is easy.
+
+---
+
+## No Speculative Complexity
+
+No abstractions for imagined scale.
+No generic frameworks.
+No plugin systems.
+
+Solve the problem that exists today.
+
+---
+
+## Correctness Is Mandatory
+
+We never sacrifice:
+
+- determinism
+- data integrity
+- explicit error handling
+- traceability of important actions
+
+If behavior cannot be explained, it is wrong.
+
+---
+
+## Practical Heuristic
+
+If a new dependency removes learning or visibility,
+we should probably not use it.
+
+---
+
+## Agent Rule
+
+Prefer a small, concrete, readable implementation
+that exposes reality
+
+over a powerful solution that hides it.
+
+IMPORTANT: always try to push back on complexity unless correctness requires
+that complexity.
+
 ## Plan mode
 
 IMPORTANT: when in plan mode always propose validations that sub-agents can take to continuously iterate on the task at hand.

@@ -38,3 +38,5 @@ workspaces/
 !/workspaces/.gitignore
 
 .commit-message-stash
+
+.erl.history/
